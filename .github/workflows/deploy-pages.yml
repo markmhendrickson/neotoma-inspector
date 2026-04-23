@@ -36,6 +36,9 @@ jobs:
       - name: Build site
         env:
           VITE_NEOTOMA_ENV: prod
+          # inspector.neotoma.io should come up pointed at the public sandbox by default.
+          # A repo variable can still override this for alternate hosted deployments.
+          VITE_NEOTOMA_API_URL: ${{ vars.VITE_NEOTOMA_API_URL || 'https://sandbox.neotoma.io' }}
           VITE_PUBLIC_BASE_PATH: ${{ vars.VITE_PUBLIC_BASE_PATH || format('/{0}/', github.event.repository.name) }}
         run: npm run build
 
