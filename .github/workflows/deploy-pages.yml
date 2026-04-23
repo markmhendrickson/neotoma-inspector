@@ -30,10 +30,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Custom domains (e.g. inspector.neotoma.io) are served at /. Default Pages URL is
+      # https://<user>.github.io/<repo>/ — set repo variable VITE_PUBLIC_BASE_PATH to /
+      # when using a root custom domain (see inspector README).
       - name: Build site
         env:
           VITE_NEOTOMA_ENV: prod
-          VITE_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_PUBLIC_BASE_PATH: ${{ vars.VITE_PUBLIC_BASE_PATH || format('/{0}/', github.event.repository.name) }}
         run: npm run build
 
       - name: Add SPA fallback for GitHub Pages
