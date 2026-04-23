@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { listTimeline, getTimelineById } from "@/api/endpoints/timeline";
 
 export function useTimeline(params?: {
@@ -13,6 +14,7 @@ export function useTimeline(params?: {
     queryKey: ["timeline", params],
     queryFn: () => listTimeline(params),
     placeholderData: (prev) => prev,
+    enabled: isApiUrlConfigured(),
   });
 }
 
@@ -20,6 +22,6 @@ export function useTimelineEvent(id: string | undefined) {
   return useQuery({
     queryKey: ["timeline-event", id],
     queryFn: () => getTimelineById(id!),
-    enabled: !!id,
+    enabled: isApiUrlConfigured() && !!id,
   });
 }

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { listSources, getSourceById, getSourceRelationships } from "@/api/endpoints/sources";
 
 export function useSources(params?: { search?: string; mime_type?: string; source_type?: string; limit?: number; offset?: number }) {
@@ -6,6 +7,7 @@ export function useSources(params?: { search?: string; mime_type?: string; sourc
     queryKey: ["sources", params],
     queryFn: () => listSources(params),
     placeholderData: (prev) => prev,
+    enabled: isApiUrlConfigured(),
   });
 }
 
@@ -13,7 +15,7 @@ export function useSourceById(id: string | undefined) {
   return useQuery({
     queryKey: ["source", id],
     queryFn: () => getSourceById(id!),
-    enabled: !!id,
+    enabled: isApiUrlConfigured() && !!id,
   });
 }
 
@@ -21,6 +23,6 @@ export function useSourceRelationships(id: string | undefined) {
   return useQuery({
     queryKey: ["source-relationships", id],
     queryFn: () => getSourceRelationships(id!, { expand_entities: true }),
-    enabled: !!id,
+    enabled: isApiUrlConfigured() && !!id,
   });
 }

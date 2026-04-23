@@ -14,6 +14,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { queryObservations } from "@/api/endpoints/observations";
 import { listRelationships } from "@/api/endpoints/relationships";
 import { listSources } from "@/api/endpoints/sources";
@@ -89,26 +90,31 @@ export function AttributionSummary() {
     queryKey: ["attribution-summary", "observations"],
     queryFn: () => queryObservations({ limit: SAMPLE_LIMIT }),
     staleTime: 60_000,
+    enabled: isApiUrlConfigured(),
   });
   const rels = useQuery({
     queryKey: ["attribution-summary", "relationships"],
     queryFn: () => listRelationships(),
     staleTime: 60_000,
+    enabled: isApiUrlConfigured(),
   });
   const srcs = useQuery({
     queryKey: ["attribution-summary", "sources"],
     queryFn: () => listSources({ limit: SAMPLE_LIMIT }),
     staleTime: 60_000,
+    enabled: isApiUrlConfigured(),
   });
   const tl = useQuery({
     queryKey: ["attribution-summary", "timeline"],
     queryFn: () => listTimeline({ limit: SAMPLE_LIMIT }),
     staleTime: 60_000,
+    enabled: isApiUrlConfigured(),
   });
   const interps = useQuery({
     queryKey: ["attribution-summary", "interpretations"],
     queryFn: () => listInterpretations({ limit: SAMPLE_LIMIT }),
     staleTime: 60_000,
+    enabled: isApiUrlConfigured(),
   });
 
   const summary = useMemo(() => {

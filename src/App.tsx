@@ -23,6 +23,7 @@ const InterpretationsPage = lazy(() => import("@/pages/interpretations"));
 const AgentsPage = lazy(() => import("@/pages/agents"));
 const AgentDetailPage = lazy(() => import("@/pages/agent_detail"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
+const SandboxPage = lazy(() => import("@/pages/sandbox"));
 
 function PageLoader() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/agents/:key" element={<AgentDetailPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/sandbox" element={<SandboxPage />} />
         </Route>
       </Routes>
     </Suspense>

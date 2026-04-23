@@ -7,6 +7,7 @@
  * `cat mirror/entities/<type>/<slug>.md` would show.
  */
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   batchCorrect,
@@ -19,7 +20,7 @@ export function useEntityMarkdown(entityId: string | undefined, enabled = true) 
   return useQuery({
     queryKey: ["entity-markdown", entityId],
     queryFn: () => getEntityMarkdown(entityId!),
-    enabled: !!entityId && enabled,
+    enabled: isApiUrlConfigured() && !!entityId && enabled,
   });
 }
 

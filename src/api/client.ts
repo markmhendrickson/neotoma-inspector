@@ -48,8 +48,17 @@ export function getDefaultApiUrl(): string {
   if (import.meta.env.VITE_NEOTOMA_API_URL) {
     return import.meta.env.VITE_NEOTOMA_API_URL;
   }
+  // Production bundles (e.g. GitHub Pages) are served from a public origin; browsers
+  // block or gate fetches to loopback. Localhost defaults are only for Vite dev / Node.
+  if (import.meta.env.PROD) {
+    return "";
+  }
   return getInspectorEnvironment() === "prod" ? "http://localhost:3180" : "http://localhost:3080";
 }
+
+/** User-visible hint when the hosted app has no API base URL yet. */
+export const MISSING_API_URL_MESSAGE =
+  "No Neotoma API URL configured. Open Settings and set your HTTPS API base URL.";
 
 export function getSavedApiUrl(): string | null {
   const storedValue = normalizeStoredUrl(getStoredValue(API_URL_KEY_PREFIX, LEGACY_API_URL_KEY));
@@ -68,6 +77,19 @@ export function getSavedApiUrl(): string | null {
 
 export function getApiUrl(): string {
   return getSavedApiUrl() || (isProxyDefaultEnabled() ? LOCAL_PROXY_BASE : getDefaultApiUrl());
+}
+
+/** True when requests should go to a configured base (saved URL, dev /api proxy, or baked VITE_NEOTOMA_API_URL). */
+export function isApiUrlConfigured(): boolean {
+  return Boolean(getApiUrl().trim());
+}
+
+function requireApiBase(): string {
+  const base = getApiUrl().replace(/\/$/, "");
+  if (!base) {
+    throw new Error(MISSING_API_URL_MESSAGE);
+  }
+  return base;
 }
 
 export function setApiUrl(url: string) {
@@ -98,7 +120,7 @@ export function clearAuthToken() {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = getApiUrl().replace(/\/$/, "");
+  const base = requireApiBase();
   const url = `${base}${path}`;
   const token = getAuthToken();
 
@@ -144,7 +166,7 @@ function buildQueryString(params?: Record<string, string | number | boolean | un
 }
 
 export function buildApiUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
-  const base = getApiUrl().replace(/\/$/, "");
+  const base = requireApiBase();
   return `${base}${path}${buildQueryString(params)}`;
 }
 

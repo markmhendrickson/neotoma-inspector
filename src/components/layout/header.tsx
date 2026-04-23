@@ -25,7 +25,8 @@ export function Header() {
   const inspectorEnv = getInspectorEnvironment();
   const sqlitePath = me.data?.storage?.sqlite_db;
   const dataDir = me.data?.storage?.data_dir;
-  const apiTarget = isProxyDefaultEnabled() ? `proxy /api → ${getDefaultApiUrl()}` : getApiUrl();
+  const apiTargetRaw = isProxyDefaultEnabled() ? `proxy /api → ${getDefaultApiUrl()}` : getApiUrl();
+  const apiTarget = apiTargetRaw.trim() ? apiTargetRaw : "Not configured (set in Settings)";
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-6">

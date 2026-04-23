@@ -23,6 +23,7 @@ import { JsonViewer } from "@/components/shared/json_viewer";
 import { AttributionSummary } from "@/components/shared/attribution_summary";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatInspectorUserId } from "@/lib/constants";
+import { areDestructiveActionsHidden, isApiUrlOverrideDisabled } from "@/lib/sandbox";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Circle, RefreshCw } from "lucide-react";
@@ -92,20 +93,35 @@ export default function SettingsPage() {
               <Input
                 value={apiUrl}
                 onChange={(e) => setApiUrlLocal(e.target.value)}
-                placeholder={proxyDefaultEnabled ? LOCAL_PROXY_PLACEHOLDER : defaultApiUrl}
+                placeholder={
+                  proxyDefaultEnabled
+                    ? LOCAL_PROXY_PLACEHOLDER
+                    : defaultApiUrl || "https://your-neotoma-api.example.com"
+                }
+                disabled={isApiUrlOverrideDisabled()}
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                {proxyDefaultEnabled
-                  ? `Local dev default for ${inspectorEnvironment}: /api -> ${defaultApiUrl}`
-                  : `Default for the current Neotoma environment (${inspectorEnvironment}): ${defaultApiUrl}`}
+                {isApiUrlOverrideDisabled()
+                  ? `Locked to the sandbox host (${defaultApiUrl}). Install Neotoma locally to change the API URL.`
+                  : proxyDefaultEnabled
+                    ? `Local dev default for ${inspectorEnvironment}: /api -> ${defaultApiUrl}`
+                    : `Default for the current Neotoma environment (${inspectorEnvironment}): ${defaultApiUrl}`}
               </p>
             </div>
             <div>
               <Label>Bearer Token</Label>
-              <Input type="password" value={token} onChange={(e) => setTokenLocal(e.target.value)} placeholder="Optional auth token" />
+              <Input
+                type="password"
+                value={token}
+                onChange={(e) => setTokenLocal(e.target.value)}
+                placeholder="Optional auth token"
+                disabled={isApiUrlOverrideDisabled()}
+              />
             </div>
             <div className="flex items-center gap-3">
-              <Button onClick={handleSaveConnection}>Save & Reconnect</Button>
+              <Button onClick={handleSaveConnection} disabled={isApiUrlOverrideDisabled()}>
+                Save & Reconnect
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => {
@@ -114,7 +130,7 @@ export default function SettingsPage() {
                   qc.invalidateQueries();
                   toast.success("Reverted to default connection");
                 }}
-                disabled={!savedApiUrl && !apiUrl.trim()}
+                disabled={isApiUrlOverrideDisabled() || (!savedApiUrl && !apiUrl.trim())}
               >
                 Use Default
               </Button>
@@ -171,6 +187,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {areDestructiveActionsHidden() ? null : (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
@@ -213,6 +230,7 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+        )}
       </div>
 
       <Separator className="my-6" />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { useSourceById, useSourceRelationships } from "@/hooks/use_sources";
 import { useInterpretations } from "@/hooks/use_interpretations";
 import { PageShell } from "@/components/layout/page_shell";
@@ -234,7 +235,7 @@ export default function SourceDetailPage() {
   const rawText = useQuery({
     queryKey: ["source-content-text", id],
     queryFn: () => getSourceContentText(id!),
-    enabled: !!id && previewKind === "text" && !isLargeFile,
+    enabled: isApiUrlConfigured() && !!id && previewKind === "text" && !isLargeFile,
   });
 
   const parsedJsonContent = useMemo(() => {
@@ -246,13 +247,14 @@ export default function SourceDetailPage() {
   const signedFileUrl = useQuery({
     queryKey: ["source-signed-file-url", s?.storage_url, previewKind],
     queryFn: () => getFileUrl(s!.storage_url!),
-    enabled: !!id && useSignedStorageUrl,
+    enabled: isApiUrlConfigured() && !!id && useSignedStorageUrl,
   });
 
   const rawBlob = useQuery({
     queryKey: ["source-content-blob", id, previewKind],
     queryFn: () => getSourceContentBlob(id!),
     enabled:
+      isApiUrlConfigured() &&
       !!id &&
       ((previewKind === "image" && !isLargeFile) ||
         (previewKind === "pdf" && !isLargeFile) ||

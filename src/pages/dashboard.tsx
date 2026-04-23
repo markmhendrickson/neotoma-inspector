@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { isApiUrlConfigured, MISSING_API_URL_MESSAGE } from "@/api/client";
 import { useStats } from "@/hooks/use_stats";
 import { useRecentConversations } from "@/hooks/use_recent_conversations";
 import { useHealthCheck, useServerInfo, useHealthCheckSnapshots } from "@/hooks/use_infra";
@@ -106,8 +107,26 @@ export default function DashboardPage() {
           : `${selectedCount} of ${typeEntries.length} types`;
 
   return (
-    <PageShell title="Dashboard" description={s ? `Last updated ${formatDate(s.last_updated)}` : "Loading…"}>
-      {stats.isLoading ? (
+    <PageShell
+      title="Dashboard"
+      description={
+        !isApiUrlConfigured()
+          ? "API not configured"
+          : s
+            ? `Last updated ${formatDate(s.last_updated)}`
+            : "Loading…"
+      }
+    >
+      {!isApiUrlConfigured() ? (
+        <Card>
+          <CardContent className="pt-6 space-y-3">
+            <p className="text-sm text-muted-foreground">{MISSING_API_URL_MESSAGE}</p>
+            <Button asChild variant="default" size="sm">
+              <Link to="/settings">Open Settings</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : stats.isLoading ? (
         <DashboardStatsSkeleton />
       ) : stats.error ? (
         <QueryErrorAlert title="Could not load dashboard stats">{stats.error.message}</QueryErrorAlert>

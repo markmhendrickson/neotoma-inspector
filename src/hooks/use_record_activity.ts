@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { listRecordActivity } from "@/api/endpoints/record_activity";
 
 export function useRecordActivity(
@@ -8,7 +9,7 @@ export function useRecordActivity(
   return useQuery({
     queryKey: ["record_activity", params],
     queryFn: () => listRecordActivity(params),
-    enabled: options?.enabled ?? true,
+    enabled: isApiUrlConfigured() && (options?.enabled ?? true),
     placeholderData: (prev) => prev,
   });
 }

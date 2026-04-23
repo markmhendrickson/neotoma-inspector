@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import {
   useEntityById,
   useEntityObservations,
@@ -135,6 +136,7 @@ export default function EntityDetailPage() {
     queries: relatedSourceIds.map((sourceId) => ({
       queryKey: ["source", sourceId],
       queryFn: () => getSourceById(sourceId),
+      enabled: isApiUrlConfigured(),
     })),
   });
   const relatedSources = relatedSourceQueries

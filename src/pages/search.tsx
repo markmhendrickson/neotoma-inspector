@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Search as SearchIcon } from "lucide-react";
@@ -61,7 +62,7 @@ export default function SearchPage() {
         limit: ENTITY_PAGE_SIZE,
         include_snapshots: true,
       }),
-    enabled: debouncedSearch.length > 0,
+    enabled: isApiUrlConfigured() && debouncedSearch.length > 0,
   });
 
   const sourcesQuery = useQuery({
@@ -71,7 +72,7 @@ export default function SearchPage() {
         search: debouncedSearch,
         limit: SOURCE_PAGE_SIZE,
       }),
-    enabled: debouncedSearch.length > 0,
+    enabled: isApiUrlConfigured() && debouncedSearch.length > 0,
   });
 
   const entityColumns = useMemo<ColumnDef<EntitySnapshot, unknown>[]>(

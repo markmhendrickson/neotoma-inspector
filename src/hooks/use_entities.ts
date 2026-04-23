@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { queryEntities, getEntityById, getEntityObservations, getEntityRelationships, getFieldProvenance } from "@/api/endpoints/entities";
 import type { EntitiesQueryParams } from "@/types/api";
 
@@ -7,6 +8,7 @@ export function useEntitiesQuery(params: EntitiesQueryParams) {
     queryKey: ["entities", params],
     queryFn: () => queryEntities(params),
     placeholderData: (prev) => prev,
+    enabled: isApiUrlConfigured(),
   });
 }
 
@@ -14,7 +16,7 @@ export function useEntityById(id: string | undefined) {
   return useQuery({
     queryKey: ["entity", id],
     queryFn: () => getEntityById(id!),
-    enabled: !!id,
+    enabled: isApiUrlConfigured() && !!id,
   });
 }
 
@@ -22,7 +24,7 @@ export function useEntityObservations(id: string | undefined) {
   return useQuery({
     queryKey: ["entity-observations", id],
     queryFn: () => getEntityObservations(id!),
-    enabled: !!id,
+    enabled: isApiUrlConfigured() && !!id,
   });
 }
 
@@ -34,7 +36,7 @@ export function useEntityRelationships(
   return useQuery({
     queryKey: ["entity-relationships", id, expand],
     queryFn: () => getEntityRelationships(id!, { expand_entities: expand }),
-    enabled: !!id,
+    enabled: isApiUrlConfigured() && !!id,
   });
 }
 
@@ -42,6 +44,6 @@ export function useFieldProvenance(entityId: string | undefined, field: string |
   return useQuery({
     queryKey: ["field-provenance", entityId, field],
     queryFn: () => getFieldProvenance(entityId!, field!),
-    enabled: !!entityId && !!field,
+    enabled: isApiUrlConfigured() && !!entityId && !!field,
   });
 }

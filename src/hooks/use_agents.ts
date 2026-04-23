@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import {
   getAgent,
   listAgentRecords,
@@ -10,6 +11,7 @@ export function useAgents() {
     queryKey: ["agents"],
     queryFn: () => listAgents(),
     placeholderData: (prev) => prev,
+    enabled: isApiUrlConfigured(),
   });
 }
 
@@ -17,7 +19,7 @@ export function useAgent(agentKey: string | undefined) {
   return useQuery({
     queryKey: ["agents", agentKey],
     queryFn: () => getAgent(agentKey as string),
-    enabled: Boolean(agentKey),
+    enabled: isApiUrlConfigured() && Boolean(agentKey),
   });
 }
 
@@ -28,7 +30,7 @@ export function useAgentRecords(
   return useQuery({
     queryKey: ["agents", agentKey, "records", params],
     queryFn: () => listAgentRecords(agentKey as string, params),
-    enabled: Boolean(agentKey),
+    enabled: isApiUrlConfigured() && Boolean(agentKey),
     placeholderData: (prev) => prev,
   });
 }

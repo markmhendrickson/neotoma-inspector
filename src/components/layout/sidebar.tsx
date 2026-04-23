@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { isApiUrlConfigured } from "@/api/client";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { queryEntities } from "@/api/endpoints/entities";
 import { listSources } from "@/api/endpoints/sources";
@@ -139,7 +140,7 @@ export function Sidebar() {
         sources: sources.sources,
       };
     },
-    enabled: debouncedSearch.length > 0,
+    enabled: isApiUrlConfigured() && debouncedSearch.length > 0,
   });
 
   const trimmedSearch = search.trim();
