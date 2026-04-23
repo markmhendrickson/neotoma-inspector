@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { useSources } from "@/hooks/use_sources";
 import { useStore, useStoreUnstructured } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
-import { DataTable } from "@/components/shared/data_table";
+import { ListSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
+import { AgentBadge } from "@/components/shared/agent_badge";
+import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
 import { Pagination } from "@/components/shared/pagination";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,39 +15,54 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { formatDate, truncateId } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Upload, Search } from "lucide-react";
-import type { ColumnDef } from "@tanstack/react-table";
 import type { Source } from "@/types/api";
 
 const PAGE_SIZE = 25;
 
+type MimePreset = "all" | "audio" | "image" | "pdf" | "text" | "video" | "custom";
+
+const MIME_PRESET_FILTERS: { id: Exclude<MimePreset, "all" | "custom">; label: string; needle: string }[] = [
+  { id: "audio", label: "Audio", needle: "audio" },
+  { id: "image", label: "Image", needle: "image" },
+  { id: "pdf", label: "PDF", needle: "pdf" },
+  { id: "text", label: "Text", needle: "text" },
+  { id: "video", label: "Video", needle: "video" },
+];
+
 export default function SourcesPage() {
   const [search, setSearch] = useState("");
-  const [mimeType, setMimeType] = useState("");
+  const [mimePreset, setMimePreset] = useState<MimePreset>("all");
+  const [mimeCustom, setMimeCustom] = useState("");
   const [offset, setOffset] = useState(0);
 
-  const sources = useSources({ search: search || undefined, mime_type: mimeType || undefined, limit: PAGE_SIZE, offset });
+  const mimeTypeForApi =
+    mimePreset === "all"
+      ? undefined
+      : mimePreset === "custom"
+        ? mimeCustom.trim() || undefined
+        : MIME_PRESET_FILTERS.find((p) => p.id === mimePreset)?.needle;
+
+  const sources = useSources({
+    search: search || undefined,
+    mime_type: mimeTypeForApi,
+    limit: PAGE_SIZE,
+    offset,
+  });
+  const sourcesList = sources.data?.sources ?? [];
+  const { filterRows, AgentFilterControl } =
+    useAgentAttributionFilter(sourcesList);
+  const displayedSources = filterRows(sourcesList);
+
+  function setMimePresetAndReset(preset: MimePreset) {
+    setMimePreset(preset);
+    if (preset !== "custom") setMimeCustom("");
+    setOffset(0);
+  }
 
   const [storeJson, setStoreJson] = useState('{\n  "entities": [],\n  "idempotency_key": ""\n}');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const storeMut = useStore();
   const uploadMut = useStoreUnstructured();
-
-  const columns: ColumnDef<Source, unknown>[] = [
-    {
-      header: "Filename",
-      accessorKey: "original_filename",
-      cell: ({ row }) => (
-        <Link to={`/sources/${encodeURIComponent(row.original.id)}`} className="font-medium text-primary hover:underline">
-          {row.original.original_filename || truncateId(row.original.id)}
-        </Link>
-      ),
-    },
-    { header: "MIME", accessorKey: "mime_type", cell: ({ getValue }) => <span className="font-mono text-xs">{(getValue() as string) || "—"}</span> },
-    { header: "Type", accessorKey: "source_type" },
-    { header: "Size", accessorKey: "file_size", cell: ({ getValue }) => { const v = getValue() as number | undefined; return v ? `${(v / 1024).toFixed(1)} KB` : "—"; } },
-    { header: "Created", accessorKey: "created_at", cell: ({ getValue }) => formatDate(getValue() as string) },
-    { header: "ID", accessorKey: "id", cell: ({ getValue }) => <span className="font-mono text-xs text-muted-foreground">{truncateId(getValue() as string, 12)}</span> },
-  ];
 
   return (
     <PageShell
@@ -93,21 +110,107 @@ export default function SourcesPage() {
         </div>
       }
     >
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="relative min-w-[200px] flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search sources…" value={search} onChange={(e) => { setSearch(e.target.value); setOffset(0); }} className="pl-9" />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="relative min-w-[200px] flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search sources…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setOffset(0);
+              }}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-1.5 sm:flex-[0_1_auto]">
+            <span className="text-xs font-medium text-muted-foreground">Type</span>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={mimePreset === "all" ? "secondary" : "outline"}
+                className="h-8 shrink-0 px-2.5 text-xs"
+                onClick={() => setMimePresetAndReset("all")}
+              >
+                All
+              </Button>
+              {MIME_PRESET_FILTERS.map(({ id, label }) => (
+                <Button
+                  key={id}
+                  type="button"
+                  size="sm"
+                  variant={mimePreset === id ? "secondary" : "outline"}
+                  className="h-8 shrink-0 px-2.5 text-xs"
+                  onClick={() => setMimePresetAndReset(id)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex w-full min-w-[140px] flex-col gap-1.5 sm:w-[200px]">
+            <span className="text-xs font-medium text-muted-foreground">Custom MIME</span>
+            <Input
+              placeholder="e.g. wav, octet-stream"
+              value={mimeCustom}
+              onChange={(e) => {
+                setMimeCustom(e.target.value);
+                setMimePreset("custom");
+                setOffset(0);
+              }}
+              className="h-8"
+            />
+          </div>
+          <AgentFilterControl />
         </div>
-        <Input placeholder="MIME type…" value={mimeType} onChange={(e) => { setMimeType(e.target.value); setOffset(0); }} className="w-[180px]" />
       </div>
 
       {sources.isLoading ? (
-        <div className="text-muted-foreground">Loading…</div>
+        <ListSkeleton rows={10} />
       ) : sources.error ? (
-        <div className="text-destructive">Error: {sources.error.message}</div>
+        <QueryErrorAlert title="Could not load sources">{sources.error.message}</QueryErrorAlert>
       ) : (
         <>
-          <DataTable columns={columns} data={sources.data?.sources ?? []} />
+          <div className="space-y-2">
+            {displayedSources.map((source) => (
+              <div key={source.id} className="rounded-md border p-3">
+                <div className="flex items-start gap-3">
+                  <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                    {relativeTime(source.created_at)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/sources/${encodeURIComponent(source.id)}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {sourceTitle(source)}
+                      </Link>
+                      <AgentBadge
+                        provenance={source.provenance ?? null}
+                        iconOnly
+                      />
+                    </div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {sourceDetail(source)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {sourcePreviewChips(source).map((chip) => (
+                        <span
+                          key={`${source.id}-${chip}`}
+                          className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
           {sources.data && sources.data.sources.length >= PAGE_SIZE && (
             <Pagination offset={offset} limit={PAGE_SIZE} total={sources.data.sources.length + offset + 1} onPageChange={setOffset} />
           )}
@@ -115,4 +218,81 @@ export default function SourcesPage() {
       )}
     </PageShell>
   );
+}
+
+function sourceTitle(source: Source): string {
+  if (source.original_filename?.trim()) return source.original_filename.trim();
+  const inferred = firstStringValue(source.provenance, ["title", "name", "file_name", "filename"]);
+  if (inferred) return inferred;
+  return `Source ${truncateId(source.id, 10)}`;
+}
+
+function sourceDetail(source: Source): string {
+  const summary = firstStringValue(source.provenance, [
+    "summary",
+    "description",
+    "content",
+    "conversation_title",
+    "prompt",
+  ]);
+  if (summary) return truncate(summary, 140);
+
+  const type = source.source_type || "source";
+  const mime = source.mime_type || "unknown format";
+  return `${humanize(type)} · ${mime}`;
+}
+
+function sourcePreviewChips(source: Source): string[] {
+  const chips: string[] = [];
+
+  if (source.source_type) chips.push(`Type: ${humanize(source.source_type)}`);
+  if (source.mime_type) chips.push(`MIME: ${source.mime_type}`);
+  if (source.file_size) chips.push(`Size: ${(source.file_size / 1024).toFixed(1)} KB`);
+  if (source.created_at) chips.push(`Created: ${formatDate(source.created_at)}`);
+  if (source.content_hash) chips.push(`Hash: ${truncateId(source.content_hash, 12)}`);
+
+  return chips.slice(0, 5);
+}
+
+function firstStringValue(
+  record: Record<string, unknown> | undefined,
+  keys: string[]
+): string | undefined {
+  if (!record) return undefined;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string") {
+      const compact = value.replace(/\s+/g, " ").trim();
+      if (compact) return compact;
+    }
+  }
+  return undefined;
+}
+
+function humanize(raw: string): string {
+  return raw
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/, (c) => c.toUpperCase())
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function relativeTime(ts: string | undefined): string {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  if (hrs < 24) return `${hrs}h`;
+  if (days < 30) return `${days}d`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

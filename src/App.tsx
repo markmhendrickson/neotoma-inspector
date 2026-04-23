@@ -1,8 +1,10 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layout/app_layout";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
+const SearchPage = lazy(() => import("@/pages/search"));
 const EntitiesPage = lazy(() => import("@/pages/entities"));
 const EntityDetailPage = lazy(() => import("@/pages/entity_detail"));
 const ObservationsPage = lazy(() => import("@/pages/observations"));
@@ -15,11 +17,21 @@ const SchemasPage = lazy(() => import("@/pages/schemas"));
 const SchemaDetailPage = lazy(() => import("@/pages/schema_detail"));
 const TimelinePage = lazy(() => import("@/pages/timeline"));
 const TimelineEventDetailPage = lazy(() => import("@/pages/timeline_event_detail"));
+const RecentActivityPage = lazy(() => import("@/pages/recent_activity"));
+const RecentConversationsPage = lazy(() => import("@/pages/recent_conversations"));
 const InterpretationsPage = lazy(() => import("@/pages/interpretations"));
+const AgentsPage = lazy(() => import("@/pages/agents"));
+const AgentDetailPage = lazy(() => import("@/pages/agent_detail"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 
 function PageLoader() {
-  return <div className="flex items-center justify-center p-12 text-muted-foreground">Loading…</div>;
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 p-12" aria-busy aria-label="Loading page">
+      <Skeleton className="h-9 w-56" />
+      <Skeleton className="h-4 w-72 max-w-[90vw]" />
+      <Skeleton className="h-4 w-48 max-w-[70vw]" />
+    </div>
+  );
 }
 
 export default function App() {
@@ -28,6 +40,7 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/entities" element={<EntitiesPage />} />
           <Route path="/entities/:id" element={<EntityDetailPage />} />
           <Route path="/observations" element={<ObservationsPage />} />
@@ -38,9 +51,13 @@ export default function App() {
           <Route path="/graph" element={<GraphExplorerPage />} />
           <Route path="/schemas" element={<SchemasPage />} />
           <Route path="/schemas/:entityType" element={<SchemaDetailPage />} />
+          <Route path="/activity" element={<RecentActivityPage />} />
+          <Route path="/conversations" element={<RecentConversationsPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/timeline/:id" element={<TimelineEventDetailPage />} />
           <Route path="/interpretations" element={<InterpretationsPage />} />
+          <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/agents/:key" element={<AgentDetailPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>

@@ -136,6 +136,54 @@ export function get<T>(path: string, params?: Record<string, string | number | b
   return request<T>(path + queryString);
 }
 
+function buildQueryString(params?: Record<string, string | number | boolean | undefined>): string {
+  if (!params) return "";
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
+  if (!entries.length) return "";
+  return "?" + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
+}
+
+export function buildApiUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
+  const base = getApiUrl().replace(/\/$/, "");
+  return `${base}${path}${buildQueryString(params)}`;
+}
+
+/**
+ * Fetch a non-JSON response body as text. Used by endpoints like
+ * GET /entities/:id/markdown that return `text/markdown`.
+ */
+export async function getText(
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>
+): Promise<string> {
+  const url = buildApiUrl(path, params);
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || `HTTP ${res.status}`);
+  }
+  return res.text();
+}
+
+export async function getBlob(
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>
+): Promise<Blob> {
+  const url = buildApiUrl(path, params);
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || `HTTP ${res.status}`);
+  }
+  return res.blob();
+}
+
 export function post<T>(path: string, body?: unknown): Promise<T> {
   return request<T>(path, {
     method: "POST",

@@ -2,11 +2,14 @@ import { useParams } from "react-router-dom";
 import { useRelationshipSnapshot } from "@/hooks/use_relationships";
 import { useDeleteRelationship, useRestoreRelationship } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
+import { DetailPageSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/confirm_dialog";
 import { EntityLink } from "@/components/shared/entity_link";
 import { JsonViewer } from "@/components/shared/json_viewer";
+import { AttributionCard } from "@/components/shared/attribution_card";
+import { AgentBadge } from "@/components/shared/agent_badge";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { Trash2, RotateCcw } from "lucide-react";
@@ -22,8 +25,24 @@ export default function RelationshipDetailPage() {
 
   const s = snapshot.data?.snapshot;
 
-  if (snapshot.isLoading) return <PageShell title="Loading…"><div className="text-muted-foreground">Loading…</div></PageShell>;
-  if (!s) return <PageShell title="Not Found"><div className="text-muted-foreground">Relationship not found.</div></PageShell>;
+  if (snapshot.isLoading)
+    return (
+      <PageShell title="Loading…">
+        <DetailPageSkeleton />
+      </PageShell>
+    );
+  if (snapshot.error)
+    return (
+      <PageShell title="Error">
+        <QueryErrorAlert title="Could not load relationship">{snapshot.error.message}</QueryErrorAlert>
+      </PageShell>
+    );
+  if (!s)
+    return (
+      <PageShell title="Not Found">
+        <div className="text-muted-foreground">Relationship not found.</div>
+      </PageShell>
+    );
 
   return (
     <PageShell
@@ -73,21 +92,47 @@ export default function RelationshipDetailPage() {
           </CardContent>
         </Card>
 
-        {s.snapshot && (
-          <Card>
-            <CardHeader><CardTitle className="text-base">Snapshot</CardTitle></CardHeader>
-            <CardContent><JsonViewer data={s.snapshot} defaultExpanded /></CardContent>
-          </Card>
-        )}
+        <AttributionCard
+          provenance={(s.agent_attribution ?? null) as Record<string, unknown> | null}
+          title="Agent attribution"
+          description="Agent identity from the most recent contributing relationship observation."
+        />
       </div>
+
+      {s.snapshot && (
+        <Card className="mt-4">
+          <CardHeader><CardTitle className="text-base">Snapshot</CardTitle></CardHeader>
+          <CardContent><JsonViewer data={s.snapshot} defaultExpanded /></CardContent>
+        </Card>
+      )}
 
       {snapshot.data?.observations && snapshot.data.observations.length > 0 && (
         <Card className="mt-4">
-          <CardHeader><CardTitle className="text-base">Contributing Observations</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Contributing observations</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {snapshot.data.observations.map((obs, i) => (
-                <div key={i} className="rounded-md border p-3">
+                <div key={obs.id ?? i} className="rounded-md border p-3 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <AgentBadge provenance={obs.provenance ?? null} />
+                      {obs.observed_at ? (
+                        <span className="text-muted-foreground">
+                          {formatDate(obs.observed_at)}
+                        </span>
+                      ) : null}
+                      {typeof obs.source_priority === "number" ? (
+                        <span className="text-muted-foreground">
+                          priority {obs.source_priority}
+                        </span>
+                      ) : null}
+                    </div>
+                    {obs.id ? (
+                      <span className="font-mono text-[10px] text-muted-foreground break-all">
+                        {obs.id}
+                      </span>
+                    ) : null}
+                  </div>
                   <JsonViewer data={obs} />
                 </div>
               ))}
@@ -96,12 +141,19 @@ export default function RelationshipDetailPage() {
         </Card>
       )}
 
-      {s.provenance && (
+      {s.provenance && Object.keys(s.provenance).length > 0 ? (
         <Card className="mt-4">
-          <CardHeader><CardTitle className="text-base">Provenance</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Reducer provenance</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Field → observation_id map produced by the relationship reducer.
+              This is <em>not</em> agent attribution; see the Agent attribution
+              card above.
+            </p>
+          </CardHeader>
           <CardContent><JsonViewer data={s.provenance} defaultExpanded /></CardContent>
         </Card>
-      )}
+      ) : null}
     </PageShell>
   );
 }

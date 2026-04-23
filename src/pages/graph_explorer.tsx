@@ -4,13 +4,12 @@ import { ReactFlow, Background, Controls, MiniMap, useNodesState, useEdgesState,
 import "@xyflow/react/dist/style.css";
 import { useGraphNeighborhood } from "@/hooks/use_graph";
 import { PageShell } from "@/components/layout/page_shell";
+import { GraphAreaSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { JsonViewer } from "@/components/shared/json_viewer";
-import { getEntityTypeColor } from "@/lib/constants";
 import { Search } from "lucide-react";
 
 export default function GraphExplorerPage() {
@@ -62,6 +61,23 @@ export default function GraphExplorerPage() {
     });
 
     const rels = (data.relationships || []) as Record<string, unknown>[];
+    rels.forEach((rel) => {
+      const sourceId = String(rel.source_entity_id || "");
+      const targetId = String(rel.target_entity_id || "");
+      [sourceId, targetId].forEach((entityId) => {
+        if (!entityId || entityId === activeNodeId || seen.has(entityId)) return;
+        const idx = nodes.length;
+        const angle = (2 * Math.PI * idx) / Math.max(idx + 1, 1);
+        nodes.push({
+          id: entityId,
+          position: { x: 300 + Math.cos(angle) * 220, y: 300 + Math.sin(angle) * 220 },
+          data: { label: entityId, raw: { entity_id: entityId } },
+          style: { background: "#f8fafc", border: "1px dashed #94a3b8", borderRadius: 8, padding: 8, fontSize: 11 },
+        });
+        seen.add(entityId);
+      });
+    });
+
     rels.forEach((rel, i) => {
       const src = String(rel.source_entity_id || "");
       const tgt = String(rel.target_entity_id || "");
@@ -140,7 +156,11 @@ export default function GraphExplorerPage() {
       <div className="flex gap-4">
         <div className="flex-1 h-[600px] rounded-lg border bg-background">
           {graph.isLoading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">Loading graph…</div>
+            <GraphAreaSkeleton />
+          ) : graph.error && activeNodeId ? (
+            <div className="flex h-full items-center justify-center p-6">
+              <QueryErrorAlert title="Could not load graph">{graph.error.message}</QueryErrorAlert>
+            </div>
           ) : !activeNodeId ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">Enter an entity or source ID to explore its neighborhood.</div>
           ) : nodes.length === 0 ? (

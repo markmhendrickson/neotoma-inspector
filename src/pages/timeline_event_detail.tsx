@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useTimelineEvent } from "@/hooks/use_timeline";
 import { PageShell } from "@/components/layout/page_shell";
+import { DetailPageSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EntityLink } from "@/components/shared/entity_link";
 import { SourceLink } from "@/components/shared/source_link";
@@ -13,7 +14,18 @@ export default function TimelineEventDetailPage() {
 
   const ev = event.data?.event;
 
-  if (event.isLoading) return <PageShell title="Loading…"><div className="text-muted-foreground">Loading…</div></PageShell>;
+  if (event.isLoading)
+    return (
+      <PageShell title="Loading…">
+        <DetailPageSkeleton />
+      </PageShell>
+    );
+  if (event.error)
+    return (
+      <PageShell title="Error">
+        <QueryErrorAlert title="Could not load event">{event.error.message}</QueryErrorAlert>
+      </PageShell>
+    );
   if (!ev) return <PageShell title="Not Found"><div className="text-muted-foreground">Event not found.</div></PageShell>;
 
   return (

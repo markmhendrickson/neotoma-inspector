@@ -12,15 +12,16 @@ import {
 } from "@/api/client";
 import { useHealthCheck, useServerInfo, useMe, useHealthCheckSnapshots } from "@/hooks/use_infra";
 import { PageShell } from "@/components/layout/page_shell";
+import { InlineSkeleton } from "@/components/shared/query_status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { JsonViewer } from "@/components/shared/json_viewer";
+import { AttributionSummary } from "@/components/shared/attribution_summary";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatDate } from "@/lib/utils";
 import { formatInspectorUserId } from "@/lib/constants";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +61,29 @@ export default function SettingsPage() {
   return (
     <PageShell title="Settings" description="Configure API connection and view server details">
       <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Server Info</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {serverInfo.isLoading ? (
+              <div className="space-y-2">
+                <InlineSkeleton className="h-4 w-full max-w-xs" />
+                <InlineSkeleton className="h-4 w-full max-w-sm" />
+              </div>
+            ) : serverInfo.data ? (
+              <>
+                <div className="flex justify-between"><span className="text-muted-foreground">HTTP Port</span><span>{serverInfo.data.httpPort}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">API Base</span><span className="font-mono text-xs">{serverInfo.data.apiBase || "—"}</span></div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground">MCP URL</span>
+                  <p className="font-mono text-xs break-all">{serverInfo.data.mcpUrl || "—"}</p>
+                </div>
+              </>
+            ) : (
+              <span className="text-muted-foreground">Unable to load server info.</span>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader><CardTitle className="text-base">API Connection</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -103,27 +127,13 @@ export default function SettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Server Info</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {serverInfo.isLoading ? (
-              <span className="text-muted-foreground">Loading…</span>
-            ) : serverInfo.data ? (
-              <>
-                <div className="flex justify-between"><span className="text-muted-foreground">HTTP Port</span><span>{serverInfo.data.httpPort}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">API Base</span><span className="font-mono text-xs">{serverInfo.data.apiBase || "—"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">MCP URL</span><span className="font-mono text-xs truncate max-w-[200px]">{serverInfo.data.mcpUrl || "—"}</span></div>
-              </>
-            ) : (
-              <span className="text-muted-foreground">Unable to load server info.</span>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
           <CardHeader><CardTitle className="text-base">Current User</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             {me.isLoading ? (
-              <span className="text-muted-foreground">Loading…</span>
+              <div className="space-y-2">
+                <InlineSkeleton className="h-4 w-full max-w-xs" />
+                <InlineSkeleton className="h-4 w-full max-w-md" />
+              </div>
             ) : me.data ? (
               <>
                 <div className="flex justify-between">
@@ -144,8 +154,14 @@ export default function SettingsPage() {
                 {me.data.storage && (
                   <>
                     <div className="flex justify-between"><span className="text-muted-foreground">Backend</span><Badge variant="secondary">{me.data.storage.storage_backend}</Badge></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Data Dir</span><span className="font-mono text-xs truncate max-w-[200px]">{me.data.storage.data_dir}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">SQLite DB</span><span className="font-mono text-xs truncate max-w-[200px]">{me.data.storage.sqlite_db}</span></div>
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">Data Dir</span>
+                      <p className="font-mono text-xs break-all">{me.data.storage.data_dir}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground">SQLite DB</span>
+                      <p className="font-mono text-xs break-all">{me.data.storage.sqlite_db}</p>
+                    </div>
                   </>
                 )}
               </>
@@ -197,6 +213,12 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <AttributionSummary />
       </div>
     </PageShell>
   );

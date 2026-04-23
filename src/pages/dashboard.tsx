@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useStats } from "@/hooks/use_stats";
-import { useTimeline } from "@/hooks/use_timeline";
+import { useRecentConversations } from "@/hooks/use_recent_conversations";
 import { useHealthCheck, useServerInfo, useHealthCheckSnapshots } from "@/hooks/use_infra";
 import { PageShell } from "@/components/layout/page_shell";
+import { RecentConversationsFeed } from "@/components/shared/recent_conversations_feed";
+import { AttributionSummary } from "@/components/shared/attribution_summary";
 import { StatCard } from "@/components/shared/stat_card";
 import { TypeBadge } from "@/components/shared/type_badge";
-import { EntityLink } from "@/components/shared/entity_link";
+import {
+  DashboardStatsSkeleton,
+  ListSkeleton,
+  QueryErrorAlert,
+} from "@/components/shared/query_status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -19,15 +26,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/utils";
-import { Box, ChevronDown, Eye, FileText, GitBranch, Clock, Cpu, Activity, Shield, ListFilter } from "lucide-react";
+import { Box, ChevronDown, Eye, FileText, GitBranch, Clock, Cpu, Shield, ListFilter, MessageSquareText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 /** Default number of entity types shown in the bar chart (by count, highest first). */
 const CHART_DEFAULT_MAX_TYPES = 10;
+const BADGE_DEFAULT_MAX_TYPES = 10;
+const BADGE_INCREMENT = 10;
 
 export default function DashboardPage() {
   const stats = useStats();
-  const timeline = useTimeline({ limit: 15, order_by: "created_at" });
+  const recentConversations = useRecentConversations({ limit: 10, offset: 0 });
   const health = useHealthCheck();
   const serverInfo = useServerInfo();
   const snapshotHealth = useHealthCheckSnapshots();
@@ -40,6 +49,7 @@ export default function DashboardPage() {
   }, [s]);
 
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(() => new Set());
+  const [visibleTypeCount, setVisibleTypeCount] = useState(BADGE_DEFAULT_MAX_TYPES);
 
   useEffect(() => {
     if (!s) return;
@@ -60,6 +70,12 @@ export default function DashboardPage() {
         .map(([type, count]) => ({ type, count })),
     [typeEntries, selectedTypes]
   );
+
+  const visibleTypeEntries = useMemo(
+    () => typeEntries.slice(0, visibleTypeCount),
+    [typeEntries, visibleTypeCount]
+  );
+  const hasMoreTypeBadges = visibleTypeEntries.length < typeEntries.length;
 
   function toggleChartType(type: string) {
     setSelectedTypes((prev) => {
@@ -92,9 +108,9 @@ export default function DashboardPage() {
   return (
     <PageShell title="Dashboard" description={s ? `Last updated ${formatDate(s.last_updated)}` : "Loading…"}>
       {stats.isLoading ? (
-        <div className="text-muted-foreground">Loading stats…</div>
+        <DashboardStatsSkeleton />
       ) : stats.error ? (
-        <div className="text-destructive">Failed to load stats: {stats.error.message}</div>
+        <QueryErrorAlert title="Could not load dashboard stats">{stats.error.message}</QueryErrorAlert>
       ) : s ? (
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -105,6 +121,31 @@ export default function DashboardPage() {
             <StatCard title="Events" value={s.total_events} icon={Clock} />
             <StatCard title="Interpretations" value={s.total_interpretations} icon={Cpu} />
           </div>
+
+          <Separator />
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquareText className="h-4 w-4" /> Recent conversations
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentConversations.isLoading ? (
+                <ListSkeleton rows={4} />
+              ) : recentConversations.error ? (
+                <QueryErrorAlert title="Could not load conversations">
+                  {recentConversations.error.message}
+                </QueryErrorAlert>
+              ) : (
+                <RecentConversationsFeed
+                  conversations={(recentConversations.data?.items ?? []).slice(0, 10)}
+                  compact
+                  showViewAll
+                />
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">
@@ -175,15 +216,38 @@ export default function DashboardPage() {
                   <p className="text-muted-foreground text-sm">No data for the current selection.</p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {Object.entries(s.entities_by_type)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([type, count]) => (
-                      <Link key={type} to={`/entities?type=${encodeURIComponent(type)}`}>
-                        <TypeBadge type={type} className="cursor-pointer" />
-                        <span className="ml-1 text-xs text-muted-foreground">{count}</span>
-                      </Link>
-                    ))}
+                  {visibleTypeEntries.map(([type, count]) => (
+                    <Link key={type} to={`/entities?type=${encodeURIComponent(type)}`}>
+                      <TypeBadge type={type} className="cursor-pointer" />
+                      <span className="ml-1 text-xs text-muted-foreground">{count}</span>
+                    </Link>
+                  ))}
                 </div>
+                {typeEntries.length > BADGE_DEFAULT_MAX_TYPES ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {hasMoreTypeBadges ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setVisibleTypeCount((c) => c + BADGE_INCREMENT)}
+                        >
+                          Show more
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setVisibleTypeCount(typeEntries.length)}>
+                          Show all
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => setVisibleTypeCount(BADGE_DEFAULT_MAX_TYPES)}>
+                        Show less
+                      </Button>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      Showing {visibleTypeEntries.length} of {typeEntries.length}
+                    </span>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -207,9 +271,9 @@ export default function DashboardPage() {
                         <span className="text-muted-foreground">Port</span>
                         <span>{serverInfo.data.httpPort}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="space-y-1">
                         <span className="text-muted-foreground">MCP</span>
-                        <span className="truncate max-w-[180px]">{serverInfo.data.mcpUrl || "—"}</span>
+                        <p className="font-mono text-[11px] leading-snug break-all">{serverInfo.data.mcpUrl || "—"}</p>
                       </div>
                     </>
                   )}
@@ -230,105 +294,11 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Activity className="h-4 w-4" /> Recent Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {timeline.data?.events?.length ? (
-                    <div className="space-y-1">
-                      {timeline.data.events.slice(0, 10).map((ev) => {
-                        const entityId = ev.entity_id || ev.entity_ids?.[0];
-                        const label = humanizeEventType(ev.event_type || "event");
-                        const eventDate = shortDate(ev.event_timestamp);
-                        return (
-                          <div key={ev.id} className="flex items-baseline gap-2 py-1 text-xs">
-                            <span className="text-muted-foreground whitespace-nowrap shrink-0 w-12 text-right tabular-nums">
-                              {relativeTime(ev.created_at || ev.event_timestamp)}
-                            </span>
-                            <span className="min-w-0 truncate">
-                              <span className="font-medium">{label}</span>
-                              {entityId && (
-                                <EntityLink id={entityId} className="ml-1" />
-                              )}
-                              {eventDate && (
-                                <span className="text-muted-foreground"> — {eventDate}</span>
-                              )}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No recent events.</p>
-                  )}
-                </CardContent>
-              </Card>
+              <AttributionSummary />
             </div>
           </div>
         </>
       ) : null}
     </PageShell>
   );
-}
-
-function humanizeEventType(raw: string): string {
-  const labels: Record<string, string> = {
-    TaskDue: "Task due",
-    TaskStart: "Task started",
-    TaskCompleted: "Task completed",
-    InvoiceIssued: "Invoice issued",
-    InvoiceDue: "Invoice due",
-    EventStart: "Event started",
-    EventEnd: "Event ended",
-    TransactionDate: "Transaction",
-    IncomeDate: "Income received",
-    FlightDeparture: "Flight departure",
-    FlightArrival: "Flight arrival",
-  };
-  if (labels[raw]) return labels[raw];
-  return raw
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/_/g, " ")
-    .replace(/\b\w/, (c) => c.toUpperCase())
-    .replace(/\bDate\b/i, "")
-    .replace(/\s{2,}/g, " ")
-    .trim() || raw;
-}
-
-function shortDate(ts: string | undefined | null): string | null {
-  if (!ts) return null;
-  try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return null;
-    const sameYear = d.getFullYear() === new Date().getFullYear();
-    return d.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      ...(sameYear ? {} : { year: "numeric" }),
-    });
-  } catch {
-    return null;
-  }
-}
-
-function relativeTime(ts: string | undefined | null): string {
-  if (!ts) return "";
-  try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return "";
-    const diffMs = Date.now() - d.getTime();
-    const mins = Math.floor(diffMs / 60000);
-    const hrs = Math.floor(mins / 60);
-    const days = Math.floor(hrs / 24);
-    if (mins < 1) return "now";
-    if (mins < 60) return `${mins}m`;
-    if (hrs < 24) return `${hrs}h`;
-    if (days < 30) return `${days}d`;
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  } catch {
-    return "";
-  }
 }

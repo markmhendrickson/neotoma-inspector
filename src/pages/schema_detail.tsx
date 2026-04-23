@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSchemaByType, useSchemaRecommendations, useSchemaCandidates } from "@/hooks/use_schemas";
 import { useUpdateSchema } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
+import { DetailPageSkeleton, InlineSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,11 +25,22 @@ export default function SchemaDetailPage() {
 
   const [addFieldName, setAddFieldName] = useState("");
   const [addFieldType, setAddFieldType] = useState("string");
-  const [addFieldRequired, setAddFieldRequired] = useState(false);
+  const [addFieldRequired] = useState(false);
 
   const s = schema.data;
 
-  if (schema.isLoading) return <PageShell title="Loading…"><div className="text-muted-foreground">Loading…</div></PageShell>;
+  if (schema.isLoading)
+    return (
+      <PageShell title="Loading…">
+        <DetailPageSkeleton />
+      </PageShell>
+    );
+  if (schema.error)
+    return (
+      <PageShell title="Error">
+        <QueryErrorAlert title="Could not load schema">{schema.error.message}</QueryErrorAlert>
+      </PageShell>
+    );
   if (!s) return <PageShell title="Not Found"><div className="text-muted-foreground">Schema not found.</div></PageShell>;
 
   const fields = s.schema_definition?.fields ?? s.field_summary ?? {};
@@ -125,7 +137,7 @@ export default function SchemaDetailPage() {
             </CardHeader>
             <CardContent>
               {candidates.isFetching ? (
-                <span className="text-muted-foreground text-sm">Analyzing…</span>
+                <InlineSkeleton className="h-24 w-full max-w-lg" />
               ) : candidates.data ? (
                 <JsonViewer data={candidates.data} defaultExpanded />
               ) : (
@@ -142,7 +154,7 @@ export default function SchemaDetailPage() {
             </CardHeader>
             <CardContent>
               {recommendations.isLoading ? (
-                <span className="text-muted-foreground text-sm">Loading…</span>
+                <InlineSkeleton className="h-24 w-full max-w-lg" />
               ) : recommendations.data ? (
                 <JsonViewer data={recommendations.data} defaultExpanded />
               ) : (

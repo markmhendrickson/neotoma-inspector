@@ -2,8 +2,11 @@ import { Link } from "react-router-dom";
 import { useRelationships } from "@/hooks/use_relationships";
 import { useCreateRelationship } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
+import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { DataTable } from "@/components/shared/data_table";
 import { EntityLink } from "@/components/shared/entity_link";
+import { AgentBadge } from "@/components/shared/agent_badge";
+import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +46,13 @@ export default function RelationshipsPage() {
     },
     { header: "Observations", accessorKey: "observation_count" },
     { header: "Last Observed", accessorKey: "last_observation_at", cell: ({ getValue }) => formatDate(getValue() as string) },
+    {
+      header: "Agent",
+      id: "agent",
+      cell: ({ row }) => (
+        <AgentBadge provenance={row.original.agent_attribution ?? null} />
+      ),
+    },
     {
       header: "",
       id: "actions",
@@ -95,13 +105,32 @@ export default function RelationshipsPage() {
         </Dialog>
       }
     >
-      {relationships.isLoading ? (
-        <div className="text-muted-foreground">Loading…</div>
-      ) : relationships.error ? (
-        <div className="text-destructive">Error: {relationships.error.message}</div>
-      ) : (
-        <DataTable columns={columns} data={relationships.data?.relationships ?? []} />
-      )}
+      <RelationshipsTable query={relationships} columns={columns} />
     </PageShell>
+  );
+}
+
+function RelationshipsTable({
+  query,
+  columns,
+}: {
+  query: ReturnType<typeof useRelationships>;
+  columns: ColumnDef<RelationshipSnapshot, unknown>[];
+}) {
+  const rows = query.data?.relationships ?? [];
+  const { filterRows, AgentFilterControl } = useAgentAttributionFilter(rows);
+  const displayed = filterRows(rows);
+
+  if (query.isLoading) return <DataTableSkeleton rows={12} cols={7} />;
+  if (query.error)
+    return <QueryErrorAlert title="Could not load relationships">{query.error.message}</QueryErrorAlert>;
+
+  return (
+    <>
+      <div className="mb-3 flex flex-wrap items-end gap-3">
+        <AgentFilterControl />
+      </div>
+      <DataTable columns={columns} data={displayed} />
+    </>
   );
 }

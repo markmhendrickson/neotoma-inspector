@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useEntitiesQuery } from "@/hooks/use_entities";
 import { useStats } from "@/hooks/use_stats";
 import { PageShell } from "@/components/layout/page_shell";
+import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { DataTable } from "@/components/shared/data_table";
 import { TypeBadge } from "@/components/shared/type_badge";
 import { Pagination } from "@/components/shared/pagination";
@@ -23,14 +24,36 @@ function entityRowId(row: EntitySnapshot): string {
 export default function EntitiesPage() {
   const [searchParams] = useSearchParams();
   const initialType = searchParams.get("type") || "";
-  const [search, setSearch] = useState("");
+  const initialSearch = searchParams.get("search") || "";
+  const [search, setSearch] = useState(initialSearch);
   const [entityType, setEntityType] = useState(initialType);
   const [offset, setOffset] = useState(0);
   const [sortBy, setSortBy] = useState("last_observation_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [identityBasis, setIdentityBasis] = useState<string>("");
 
   const stats = useStats();
   const entityTypes = stats.data ? Object.keys(stats.data.entities_by_type).sort() : [];
+  const [typeSelectQuery, setTypeSelectQuery] = useState("");
+
+  const filteredEntityTypes = useMemo(() => {
+    const q = typeSelectQuery.trim().toLowerCase();
+    const list = !q ? entityTypes : entityTypes.filter((t) => t.toLowerCase().includes(q));
+    if (entityType && entityTypes.includes(entityType) && !list.includes(entityType)) {
+      return [entityType, ...list];
+    }
+    return list;
+  }, [entityTypes, typeSelectQuery, entityType]);
+
+  useEffect(() => {
+    setSearch(initialSearch);
+    setOffset(0);
+  }, [initialSearch]);
+
+  useEffect(() => {
+    setEntityType(initialType);
+    setOffset(0);
+  }, [initialType]);
 
   const query = useEntitiesQuery({
     search: search || undefined,
@@ -40,6 +63,13 @@ export default function EntitiesPage() {
     sort_by: search ? undefined : sortBy,
     sort_order: search ? undefined : sortOrder,
     include_snapshots: true,
+    identity_basis:
+      (identityBasis as
+        | "schema_rule"
+        | "schema_lookup"
+        | "heuristic_name"
+        | "heuristic_fallback"
+        | "target_id") || undefined,
   });
 
   const columns: ColumnDef<EntitySnapshot, unknown>[] = [
@@ -98,15 +128,42 @@ export default function EntitiesPage() {
             />
           </div>
         </div>
-        <Select value={entityType} onValueChange={(v) => { setEntityType(v === "__all__" ? "" : v); setOffset(0); }}>
+        <Select
+          value={entityType || "__all__"}
+          onValueChange={(v) => {
+            setEntityType(v === "__all__" ? "" : v);
+            setOffset(0);
+          }}
+          onOpenChange={(open) => {
+            if (!open) setTypeSelectQuery("");
+          }}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="All types" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-80 min-w-[var(--radix-select-trigger-width)] sm:min-w-[16rem]">
+            <div
+              className="sticky top-0 z-10 border-b bg-popover p-2"
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <Input
+                placeholder="Search types…"
+                value={typeSelectQuery}
+                onChange={(e) => setTypeSelectQuery(e.target.value)}
+                className="h-8"
+                autoComplete="off"
+              />
+            </div>
             <SelectItem value="__all__">All types</SelectItem>
-            {entityTypes.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
+            {filteredEntityTypes.map((t) => (
+              <SelectItem key={t} value={t}>
+                {t}
+              </SelectItem>
             ))}
+            {filteredEntityTypes.length === 0 && typeSelectQuery.trim() !== "" ? (
+              <div className="px-2 py-4 text-center text-sm text-muted-foreground">No matching types</div>
+            ) : null}
           </SelectContent>
         </Select>
         {!search && (
@@ -127,12 +184,31 @@ export default function EntitiesPage() {
             </Button>
           </>
         )}
+        <Select
+          value={identityBasis || "__any__"}
+          onValueChange={(v) => {
+            setIdentityBasis(v === "__any__" ? "" : v);
+            setOffset(0);
+          }}
+        >
+          <SelectTrigger className="w-[200px]" title="Filter by identity_basis">
+            <SelectValue placeholder="Any identity basis" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__any__">Any identity basis</SelectItem>
+            <SelectItem value="schema_rule">schema_rule</SelectItem>
+            <SelectItem value="schema_lookup">schema_lookup</SelectItem>
+            <SelectItem value="heuristic_name">heuristic_name (ambiguous)</SelectItem>
+            <SelectItem value="heuristic_fallback">heuristic_fallback</SelectItem>
+            <SelectItem value="target_id">target_id</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {query.isLoading ? (
-        <div className="text-muted-foreground">Loading…</div>
+        <DataTableSkeleton rows={12} cols={5} />
       ) : query.error ? (
-        <div className="text-destructive">Error: {query.error.message}</div>
+        <QueryErrorAlert title="Could not load entities">{query.error.message}</QueryErrorAlert>
       ) : (
         <>
           <DataTable columns={columns} data={query.data?.entities ?? []} />

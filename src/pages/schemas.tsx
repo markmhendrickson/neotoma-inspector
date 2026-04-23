@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useSchemas } from "@/hooks/use_schemas";
 import { useRegisterSchema } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
+import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { DataTable } from "@/components/shared/data_table";
 import { TypeBadge } from "@/components/shared/type_badge";
 import { Button } from "@/components/ui/button";
@@ -78,9 +79,9 @@ export default function SchemasPage() {
       }
     >
       {schemas.isLoading ? (
-        <div className="text-muted-foreground">Loading…</div>
+        <DataTableSkeleton rows={8} cols={4} />
       ) : schemas.error ? (
-        <div className="text-destructive">Error: {schemas.error.message}</div>
+        <QueryErrorAlert title="Could not load schemas">{schemas.error.message}</QueryErrorAlert>
       ) : (
         <DataTable columns={columns} data={schemas.data?.schemas ?? []} />
       )}

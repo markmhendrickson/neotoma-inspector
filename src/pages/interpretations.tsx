@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useInterpretations } from "@/hooks/use_interpretations";
 import { PageShell } from "@/components/layout/page_shell";
+import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { DataTable } from "@/components/shared/data_table";
 import { SourceLink } from "@/components/shared/source_link";
+import { AgentBadge } from "@/components/shared/agent_badge";
+import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
 import { Pagination } from "@/components/shared/pagination";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,21 +39,33 @@ export default function InterpretationsPage() {
     { header: "Observations Created", accessorKey: "observations_created" },
     { header: "Created", accessorKey: "created_at", cell: ({ getValue }) => formatDate(getValue() as string) },
     { header: "Completed", accessorKey: "completed_at", cell: ({ getValue }) => formatDate(getValue() as string) },
+    {
+      header: "Agent",
+      id: "agent",
+      cell: ({ row }) => (
+        <AgentBadge provenance={row.original.provenance ?? null} />
+      ),
+    },
   ];
+
+  const items = interps.data?.interpretations ?? [];
+  const { filterRows, AgentFilterControl } = useAgentAttributionFilter(items);
+  const displayed = filterRows(items);
 
   return (
     <PageShell title="Interpretations" description="AI interpretation runs on sources">
       <div className="flex flex-wrap items-end gap-3">
         <Input placeholder="Filter by source ID…" value={sourceId} onChange={(e) => { setSourceId(e.target.value); setOffset(0); }} className="w-[250px]" />
+        <AgentFilterControl />
       </div>
 
       {interps.isLoading ? (
-        <div className="text-muted-foreground">Loading…</div>
+        <DataTableSkeleton rows={10} cols={6} />
       ) : interps.error ? (
-        <div className="text-destructive">Error: {interps.error.message}</div>
+        <QueryErrorAlert title="Could not load interpretations">{interps.error.message}</QueryErrorAlert>
       ) : (
         <>
-          <DataTable columns={columns} data={interps.data?.interpretations ?? []} />
+          <DataTable columns={columns} data={displayed} />
           {interps.data && interps.data.interpretations.length >= PAGE_SIZE && (
             <Pagination offset={offset} limit={PAGE_SIZE} total={interps.data.interpretations.length + offset + 1} onPageChange={setOffset} />
           )}

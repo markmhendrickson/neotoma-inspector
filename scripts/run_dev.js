@@ -1,3 +1,4 @@
+/* eslint-env node */
 import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
@@ -51,6 +52,10 @@ function getApiUrl(env) {
   return env === "prod" ? "http://localhost:3180" : "http://localhost:3080";
 }
 
+function getApiPort(env) {
+  return env === "prod" ? "3180" : "3080";
+}
+
 function spawnManagedProcess(command, args, options) {
   return spawn(command, args, {
     stdio: "inherit",
@@ -82,10 +87,13 @@ function terminateChild(child, signal = "SIGTERM") {
 
 const { env, viteArgs } = parseArgs(process.argv.slice(2));
 const apiUrl = getApiUrl(env);
+const apiPort = getApiPort(env);
 const sharedEnv = {
   ...process.env,
   VITE_NEOTOMA_ENV: env,
   VITE_NEOTOMA_API_URL: apiUrl,
+  HTTP_PORT: apiPort,
+  NEOTOMA_HTTP_PORT: apiPort,
 };
 
 console.log(`[inspector] Starting Neotoma API for ${env} at ${apiUrl}`);

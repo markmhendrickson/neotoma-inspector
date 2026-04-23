@@ -26,10 +26,14 @@ export function useEntityObservations(id: string | undefined) {
   });
 }
 
-export function useEntityRelationships(id: string | undefined) {
+export function useEntityRelationships(
+  id: string | undefined,
+  options?: { expand_entities?: boolean }
+) {
+  const expand = options?.expand_entities ?? false;
   return useQuery({
-    queryKey: ["entity-relationships", id],
-    queryFn: () => getEntityRelationships(id!),
+    queryKey: ["entity-relationships", id, expand],
+    queryFn: () => getEntityRelationships(id!, { expand_entities: expand }),
     enabled: !!id,
   });
 }

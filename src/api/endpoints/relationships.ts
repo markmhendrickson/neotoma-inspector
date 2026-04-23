@@ -1,5 +1,9 @@
 import { get, post } from "../client";
-import type { RelationshipSnapshot, RelatedEntitiesParams } from "@/types/api";
+import type {
+  RelationshipSnapshot,
+  RelationshipSnapshotResponse,
+  RelatedEntitiesParams,
+} from "@/types/api";
 
 export function listRelationships() {
   return get<{ relationships: RelationshipSnapshot[] }>("/relationships");
@@ -9,8 +13,12 @@ export function getRelationshipById(id: string) {
   return get<RelationshipSnapshot>(`/relationships/${encodeURIComponent(id)}`);
 }
 
-export function getRelationshipSnapshot(relationshipType: string, sourceEntityId: string, targetEntityId: string) {
-  return post<{ snapshot: RelationshipSnapshot; observations: Record<string, unknown>[] }>("/relationships/snapshot", {
+export function getRelationshipSnapshot(
+  relationshipType: string,
+  sourceEntityId: string,
+  targetEntityId: string
+) {
+  return post<RelationshipSnapshotResponse>("/relationships/snapshot", {
     relationship_type: relationshipType,
     source_entity_id: sourceEntityId,
     target_entity_id: targetEntityId,

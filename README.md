@@ -41,7 +41,7 @@ Saved API URLs and auth tokens are scoped per environment (`dev` / `prod`), so s
 
 - **Dashboard** (`/`) — Top-level stats, entity type breakdown chart, recent timeline activity, health status
 - **Entities** (`/entities`) — Filterable/sortable entity list with search, type filtering, pagination
-- **Entity Detail** (`/entities/:id`) — Snapshot, observations, relationships, graph neighborhood, field provenance; actions: correct, merge, delete/restore
+- **Entity Detail** (`/entities/:id`) — Snapshot, observations, relationships, graph neighborhood, field provenance; Edit tab for multi-field batch corrections with optimistic concurrency and a live canonical-markdown preview (sourced from `GET /entities/:id/markdown`); actions: correct, merge, delete/restore. Batch corrections submit through `POST /entities/:id/batch_correct`, sharing the same `applyBatchCorrection` backend as the `neotoma edit <id>` CLI.
 - **Observations** (`/observations`) — Browse and create observations with JSON field viewer
 - **Sources** (`/sources`) — Browse sources, upload files, structured store; download via signed URLs
 - **Relationships** (`/relationships`) — Browse, create, delete/restore relationships with snapshot provenance

@@ -1,5 +1,5 @@
-import { get, post } from "../client";
-import type { Source, StoreRequest, StoreResponse } from "@/types/api";
+import { buildApiUrl, get, getBlob, getText, post } from "../client";
+import type { Source, SourceRelationshipsResponse, StoreRequest, StoreResponse } from "@/types/api";
 
 export function listSources(params?: { search?: string; mime_type?: string; source_type?: string; limit?: number; offset?: number }) {
   return get<{ sources: Source[] }>("/sources", params as Record<string, string | number>);
@@ -7,6 +7,23 @@ export function listSources(params?: { search?: string; mime_type?: string; sour
 
 export function getSourceById(id: string) {
   return get<Source>(`/sources/${encodeURIComponent(id)}`);
+}
+
+export function getSourceRelationships(id: string, options?: { expand_entities?: boolean }) {
+  const qs = options?.expand_entities ? "?expand_entities=true" : "";
+  return get<SourceRelationshipsResponse>(`/sources/${encodeURIComponent(id)}/relationships${qs}`);
+}
+
+export function getSourceContentText(id: string) {
+  return getText(`/sources/${encodeURIComponent(id)}/content`);
+}
+
+export function getSourceContentBlob(id: string) {
+  return getBlob(`/sources/${encodeURIComponent(id)}/content`);
+}
+
+export function getSourceContentUrl(id: string) {
+  return buildApiUrl(`/sources/${encodeURIComponent(id)}/content`);
 }
 
 export function getFileUrl(filePath: string, expiresIn?: number) {

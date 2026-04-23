@@ -1,5 +1,10 @@
 import { get, post } from "../client";
-import type { EntitySnapshot, EntitiesQueryParams, Observation, RelationshipSnapshot } from "@/types/api";
+import type {
+  EntitySnapshot,
+  EntitiesQueryParams,
+  Observation,
+  EntityRelationshipsResponse,
+} from "@/types/api";
 
 export function queryEntities(params: EntitiesQueryParams) {
   return post<{ entities: EntitySnapshot[]; total: number; limit: number; offset: number }>("/entities/query", params);
@@ -22,8 +27,14 @@ export function getEntityObservations(id: string) {
   return get<{ observations: Observation[] }>(`/entities/${encodeURIComponent(id)}/observations`);
 }
 
-export function getEntityRelationships(id: string) {
-  return get<{ relationships: RelationshipSnapshot[] }>(`/entities/${encodeURIComponent(id)}/relationships`);
+export function getEntityRelationships(
+  id: string,
+  options?: { expand_entities?: boolean }
+) {
+  const qs = options?.expand_entities ? "?expand_entities=true" : "";
+  return get<EntityRelationshipsResponse>(
+    `/entities/${encodeURIComponent(id)}/relationships${qs}`
+  );
 }
 
 export function getEntitySnapshot(entityId: string) {

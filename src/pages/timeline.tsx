@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTimeline } from "@/hooks/use_timeline";
 import { PageShell } from "@/components/layout/page_shell";
+import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { DataTable } from "@/components/shared/data_table";
 import { EntityLink } from "@/components/shared/entity_link";
+import { AgentBadge } from "@/components/shared/agent_badge";
+import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
 import { Pagination } from "@/components/shared/pagination";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
@@ -64,7 +67,18 @@ export default function TimelinePage() {
         return props ? `${Object.keys(props).length} props` : "—";
       },
     },
+    {
+      header: "Agent",
+      id: "agent",
+      cell: ({ row }) => (
+        <AgentBadge provenance={row.original.provenance ?? null} />
+      ),
+    },
   ];
+
+  const events = timeline.data?.events ?? [];
+  const { filterRows, AgentFilterControl } = useAgentAttributionFilter(events);
+  const displayed = filterRows(events);
 
   return (
     <PageShell title="Timeline" description="Chronological event stream">
@@ -78,15 +92,16 @@ export default function TimelinePage() {
           <Input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setOffset(0); }} className="w-[160px]" />
         </div>
         <Input placeholder="Event type…" value={eventType} onChange={(e) => { setEventType(e.target.value); setOffset(0); }} className="w-[160px]" />
+        <AgentFilterControl />
       </div>
 
       {timeline.isLoading ? (
-        <div className="text-muted-foreground">Loading…</div>
+        <DataTableSkeleton rows={12} cols={5} />
       ) : timeline.error ? (
-        <div className="text-destructive">Error: {timeline.error.message}</div>
+        <QueryErrorAlert title="Could not load timeline">{timeline.error.message}</QueryErrorAlert>
       ) : (
         <>
-          <DataTable columns={columns} data={timeline.data?.events ?? []} />
+          <DataTable columns={columns} data={displayed} />
           {timeline.data && timeline.data.events.length >= PAGE_SIZE && (
             <Pagination offset={offset} limit={PAGE_SIZE} total={timeline.data.events.length + offset + 1} onPageChange={setOffset} />
           )}

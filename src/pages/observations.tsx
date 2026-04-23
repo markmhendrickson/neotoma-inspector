@@ -2,10 +2,13 @@ import { useState } from "react";
 import { useObservationsQuery } from "@/hooks/use_observations";
 import { useCreateObservation } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
+import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { DataTable } from "@/components/shared/data_table";
 import { EntityLink } from "@/components/shared/entity_link";
 import { SourceLink } from "@/components/shared/source_link";
 import { TypeBadge } from "@/components/shared/type_badge";
+import { AgentBadge } from "@/components/shared/agent_badge";
+import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { Pagination } from "@/components/shared/pagination";
 import { Input } from "@/components/ui/input";
@@ -42,6 +45,11 @@ export default function ObservationsPage() {
 
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  const observations = query.data?.observations ?? [];
+  const { filterRows, AgentFilterControl } =
+    useAgentAttributionFilter(observations);
+  const displayed = filterRows(observations);
+
   const columns: ColumnDef<Observation, unknown>[] = [
     {
       header: "Entity",
@@ -64,6 +72,13 @@ export default function ObservationsPage() {
     { header: "Priority", accessorKey: "source_priority" },
     { header: "Specificity", accessorKey: "specificity_score", cell: ({ getValue }) => (getValue() as number)?.toFixed(2) ?? "—" },
     { header: "Observed", accessorKey: "observed_at", cell: ({ getValue }) => formatDate(getValue() as string) },
+    {
+      header: "Agent",
+      id: "agent",
+      cell: ({ row }) => (
+        <AgentBadge provenance={row.original.provenance ?? null} />
+      ),
+    },
     {
       header: "Fields",
       id: "field_count",
@@ -117,18 +132,19 @@ export default function ObservationsPage() {
         </div>
         <Input placeholder="Entity type…" value={entityType} onChange={(e) => { setEntityType(e.target.value); setOffset(0); }} className="w-[150px]" />
         <Input placeholder="Source ID…" value={sourceId} onChange={(e) => { setSourceId(e.target.value); setOffset(0); }} className="w-[180px]" />
+        <AgentFilterControl />
       </div>
 
       {query.isLoading ? (
-        <div className="text-muted-foreground">Loading…</div>
+        <DataTableSkeleton rows={12} cols={7} />
       ) : query.error ? (
-        <div className="text-destructive">Error: {query.error.message}</div>
+        <QueryErrorAlert title="Could not load observations">{query.error.message}</QueryErrorAlert>
       ) : (
         <>
-          <DataTable columns={columns} data={query.data?.observations ?? []} />
+          <DataTable columns={columns} data={displayed} />
           {expanded && (
             <div className="rounded-md border p-4 mt-2">
-              <JsonViewer data={query.data?.observations?.find((o) => o.id === expanded)?.fields} defaultExpanded />
+              <JsonViewer data={displayed.find((o) => o.id === expanded)?.fields} defaultExpanded />
             </div>
           )}
           {query.data && query.data.total > PAGE_SIZE && (
