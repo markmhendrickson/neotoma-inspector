@@ -8,6 +8,7 @@ import App from "./App";
 import "./index.css";
 
 const LIVE_QUERY_INTERVAL_MS = 5_000;
+const ROUTER_BASENAME = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,7 +25,7 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={ROUTER_BASENAME}>
         <TooltipProvider delayDuration={250} skipDelayDuration={0}>
           <App />
           <Toaster position="bottom-right" />

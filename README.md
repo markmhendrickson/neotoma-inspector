@@ -37,6 +37,24 @@ VITE_NEOTOMA_API_URL=http://localhost:3080
 
 Saved API URLs and auth tokens are scoped per environment (`dev` / `prod`), so switching preserves separate connection settings.
 
+## GitHub Pages Demo Shell
+
+This app can be published as a static GitHub Pages demo shell. In that mode, the inspector does **not** proxy API calls or ship a bundled backend. Each user must point the app at their own Neotoma HTTP API from the **Settings** page.
+
+Requirements for a working Pages deployment:
+
+- The backing Neotoma API must be reachable over **HTTPS**.
+- The backing Neotoma API must allow **CORS** from the GitHub Pages origin that serves the inspector.
+- If the API requires auth, the user must provide their own bearer token in **Settings**.
+
+For project Pages deployments, set `VITE_PUBLIC_BASE_PATH` to the repo path, for example:
+
+```bash
+VITE_PUBLIC_BASE_PATH=/neotoma-inspector/
+```
+
+The included GitHub Actions workflow builds the app with that base path and copies `index.html` to `404.html` so deep links continue to load on GitHub Pages.
+
 ## Pages
 
 - **Dashboard** (`/`) — Top-level stats, entity type breakdown chart, recent timeline activity, health status
