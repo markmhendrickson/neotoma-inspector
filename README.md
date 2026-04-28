@@ -1,6 +1,12 @@
-# Neotoma
+# Neotoma Inspector
 
-A standalone React SPA for inspecting and managing all data stored in a Neotoma database instance. Provides full-coverage UI for every Neotoma REST API endpoint: browsing entities, observations, sources, relationships, schemas, timeline events, and interpretations, with an interactive graph explorer and top-level dashboard analytics.
+A React SPA for inspecting and managing all data stored in a Neotoma instance. Provides full-coverage UI for every Neotoma REST API endpoint: browsing entities, observations, sources, relationships, schemas, timeline events, and interpretations, with an interactive graph explorer and top-level dashboard analytics.
+
+## Architecture: Bundled at `/inspector`
+
+The Inspector is always bundled into the Neotoma server build and served at `/inspector` on the same origin. There is no separate deployment, no GitHub Pages, no external URL to configure. `npm run dev` in the parent repo and the Inspector is live at `localhost:3080/inspector`.
+
+The build that ships in the npm tarball lives at `<neotoma-package>/dist/inspector` (and `/app/inspector` inside the Docker image). `VITE_PUBLIC_BASE_PATH=/inspector/` is set at build time; `VITE_NEOTOMA_API_URL` is intentionally left unset so the Inspector uses relative same-origin URLs at runtime.
 
 ## Quick Start
 
@@ -18,9 +24,11 @@ npm run dev -- --env prod
 npm run build
 ```
 
+Vite defaults to **`base: /inspector/`** when `VITE_PUBLIC_BASE_PATH` is unset, so the dev server is at **`http://localhost:5174/inspector/`** (same path shape as the bundled Neotoma server). Override with `VITE_PUBLIC_BASE_PATH=/` for a root-hosted build.
+
 ## Configuration
 
-`npm run dev` now launches a Neotoma API automatically via the CLI and injects the matching default API URL into the app:
+`npm run dev` launches a Neotoma API automatically via the CLI and injects the matching default API URL:
 
 - `npm run dev` -> `dev` environment -> `http://localhost:3080`
 - `npm run dev -- --env prod` -> `prod` environment -> `http://localhost:3180`
@@ -37,34 +45,37 @@ VITE_NEOTOMA_API_URL=http://localhost:3080
 
 Saved API URLs and auth tokens are scoped per environment (`dev` / `prod`), so switching preserves separate connection settings.
 
-## GitHub Pages Demo Shell
+## Sandbox mode & session handoff
 
-This app can be published as a static GitHub Pages demo shell. In that mode, the inspector does **not** proxy API calls or ship a bundled backend. Each user must point the app at their own Neotoma HTTP API from the **Settings** page.
+On the hosted sandbox (`sandbox.neotoma.io`), the Inspector is served at `/inspector` on the same origin as the API. Ephemeral sessions are created via the landing page pack picker and handed off to the Inspector via a one-time code in the hash fragment:
 
-Requirements for a working Pages deployment:
+1. **Sandbox handoff (default for visitors).** Users start at `sandbox.neotoma.io/`, pick a fixture pack (generic, empty, or a use case), and are redirected to `/inspector#session=<one_time_code>`.
 
-- The backing Neotoma API must be reachable over **HTTPS**.
-- The backing Neotoma API must allow **CORS** from the GitHub Pages origin that serves the inspector.
-- If the API requires auth, the user must provide their own bearer token in **Settings**.
+   `src/lib/sandbox_session.ts` (`consumeSandboxSessionHandoff`) runs on boot, POSTs `/sandbox/session/redeem` (same-origin), stores the returned bearer via `setApiUrl` / `setAuthToken`, scrubs the hash, and reloads. The `SandboxBanner` then shows the active pack id + expiry countdown + Reset / End-session controls.
 
-For project Pages deployments, set `VITE_PUBLIC_BASE_PATH` to the repo path, for example:
+2. **Manual bearer (power users).** Paste an API base URL and bearer on **Settings**. While a redeemed sandbox session is active, these fields collapse under "Show advanced connection settings."
 
-```bash
-VITE_PUBLIC_BASE_PATH=/neotoma-inspector/
-```
+3. **Local dev proxy.** `npm run dev` still launches a local Neotoma and proxies `/api`; no handoff needed.
 
-The included GitHub Actions workflow builds the app with that base path and copies `index.html` to `404.html` so deep links continue to load on GitHub Pages.
+### Sandbox UI flag
+
+`VITE_NEOTOMA_SANDBOX_UI=1` (or any live redeemed session) enables:
+
+- A persistent `SandboxBanner` with pack + expiry countdown, AAuth tier, and Reset / End-session buttons when a session is active; the public weekly-reset notice + terms / abuse links otherwise.
+- Destructive admin surfaces are hidden to match the server-side destructive-op gate.
+
+See [docs/subsystems/sandbox_deployment.md](../docs/subsystems/sandbox_deployment.md) for the full sandbox architecture.
 
 ## Pages
 
 - **Dashboard** (`/`) — Top-level stats, entity type breakdown chart, recent timeline activity, health status
 - **Entities** (`/entities`) — Filterable/sortable entity list with search, type filtering, pagination
-- **Entity Detail** (`/entities/:id`) — Snapshot, observations, relationships, graph neighborhood, field provenance; Edit tab for multi-field batch corrections with optimistic concurrency and a live canonical-markdown preview (sourced from `GET /entities/:id/markdown`); actions: correct, merge, delete/restore. Batch corrections submit through `POST /entities/:id/batch_correct`, sharing the same `applyBatchCorrection` backend as the `neotoma edit <id>` CLI.
+- **Entity Detail** (`/entities/:id`) — Snapshot, observations, relationships, graph neighborhood, field provenance; Edit tab for multi-field batch corrections
 - **Observations** (`/observations`) — Browse and create observations with JSON field viewer
 - **Sources** (`/sources`) — Browse sources, upload files, structured store; download via signed URLs
 - **Relationships** (`/relationships`) — Browse, create, delete/restore relationships with snapshot provenance
 - **Graph Explorer** (`/graph`) — Interactive force-directed graph visualization with React Flow
-- **Schemas** (`/schemas`) — Registry browser, field/reducer detail, register/update forms, candidate analysis, recommendations
+- **Schemas** (`/schemas`) — Registry browser, field/reducer detail, register/update forms, candidate analysis
 - **Timeline** (`/timeline`) — Chronological event stream with date/type filters
 - **Interpretations** (`/interpretations`) — AI interpretation run history
 - **Settings** (`/settings`) — API connection, server info, user details, snapshot health
@@ -82,11 +93,11 @@ The included GitHub Actions workflow builds the app with that base path and copi
 
 ## API Coverage
 
-Covers all 47 non-OAuth endpoints from the Neotoma OpenAPI spec. See the plan document for the complete endpoint-to-UI mapping.
+Covers all endpoints from the Neotoma OpenAPI spec.
 
 ## Integration
 
-This app is designed to be added as a git submodule to the main Neotoma repo:
+This app is a git submodule of the main Neotoma repo:
 
 ```bash
 git submodule add <repo-url> inspector

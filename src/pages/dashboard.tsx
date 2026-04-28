@@ -121,9 +121,23 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="pt-6 space-y-3">
             <p className="text-sm text-muted-foreground">{MISSING_API_URL_MESSAGE}</p>
-            <Button asChild variant="default" size="sm">
-              <Link to="/settings">Open Settings</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="default" size="sm">
+                <a
+                  href="/?from=inspector"
+                  rel="noopener"
+                >
+                  Start a sandbox session
+                </a>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/settings">Open Settings</Link>
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The sandbox provisions an ephemeral workspace with your choice of fixture pack and
+              sends you back here via a one-time handoff code — no copy-paste of bearer tokens.
+            </p>
           </CardContent>
         </Card>
       ) : stats.isLoading ? (
