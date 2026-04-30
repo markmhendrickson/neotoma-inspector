@@ -2,60 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+ * Inspector design tokens
+ *
+ * Mirrors the canonical warm-cream palette declared in
+ * `frontend/src/index.css` and `docs/ui/design_system/color_palette.md`.
+ * Inspector ships fewer token families (no soft-callout, surface, or code
+ * accents at this time) but the values it does declare must match the
+ * canonical registry exactly. The design-system validator
+ * (`scripts/validate_design_system.js`) enforces parity via the
+ * `palette_divergences` registry in
+ * `docs/ui/design_system/dependencies.yaml`.
+ *
+ * Adding a new token? Declare it in `frontend/src/index.css` first, then
+ * mirror the value here and update the canonical YAML block in
+ * `color_palette.md`.
+ * ------------------------------------------------------------------------- */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    /* Surfaces — warm cream */
+    --background: 38 22% 98%;             /* Warm off-white / cream */
+    --foreground: 28 22% 18%;             /* Warm dark brown */
+    --card: 35 20% 96%;                   /* Light warm grey */
+    --card-foreground: 28 22% 18%;
+    --popover: 38 22% 98%;
+    --popover-foreground: 28 22% 18%;
+
+    /* Action — brick / terracotta */
+    --primary: 12 48% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary / muted / accent — warm tan */
+    --secondary: 35 18% 94%;
+    --secondary-foreground: 28 22% 18%;
+    --muted: 35 18% 94%;
+    --muted-foreground: 28 14% 44%;
+    --accent: 35 18% 92%;
+    --accent-foreground: 28 22% 18%;
+
+    /* Status */
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders / inputs / focus ring */
+    --border: 32 18% 88%;
+    --input: 32 18% 88%;
+    --ring: 12 48% 38%;
+
     --radius: 0.5rem;
-    --sidebar: 240 4.8% 97%;
-    --sidebar-foreground: 240 5.9% 10%;
-    --sidebar-accent: 240 4.8% 92%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 240 5.9% 90%;
+
+    /* Sidebar — inspector uses `--sidebar` (singular) where the marketing
+       site uses `--sidebar-background`. Tailwind config maps both to
+       `bg-sidebar`. Values match the canonical sidebar registry. */
+    --sidebar: 35 20% 96%;
+    --sidebar-foreground: 28 22% 18%;
+    --sidebar-accent: 35 18% 92%;
+    --sidebar-accent-foreground: 28 22% 18%;
+    --sidebar-border: 32 18% 88%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --sidebar: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    /* Surfaces — deep slate */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 95%;
+    --card: 217 33% 18%;
+    --card-foreground: 210 40% 95%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 95%;
+
+    /* Action — brighter blue */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary / muted / accent */
+    --secondary: 217 33% 25%;
+    --secondary-foreground: 210 40% 95%;
+    --muted: 217 33% 25%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 25%;
+    --accent-foreground: 210 40% 95%;
+
+    /* Status */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders / inputs / focus ring */
+    --border: 217 33% 25%;
+    --input: 217 33% 25%;
+    --ring: 217 91% 60%;
+
+    /* Sidebar */
+    --sidebar: 217 33% 18%;
+    --sidebar-foreground: 210 40% 95%;
+    --sidebar-accent: 217 33% 25%;
+    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-border: 217 33% 25%;
   }
 }
 

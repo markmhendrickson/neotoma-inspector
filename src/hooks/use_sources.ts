@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isApiUrlConfigured } from "@/api/client";
 import { listSources, getSourceById, getSourceRelationships } from "@/api/endpoints/sources";
 
@@ -6,7 +6,7 @@ export function useSources(params?: { search?: string; mime_type?: string; sourc
   return useQuery({
     queryKey: ["sources", params],
     queryFn: () => listSources(params),
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }

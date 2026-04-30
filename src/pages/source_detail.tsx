@@ -16,11 +16,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { AttributionCard } from "@/components/shared/attribution_card";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { EntityLink } from "@/components/shared/entity_link";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
 import { formatDate } from "@/lib/utils";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { getFileUrl, getSourceContentBlob, getSourceContentText, getSourceContentUrl } from "@/api/endpoints/sources";
 import { PdfJsInlinePreview } from "@/components/shared/pdf_js_inline_preview";
 import { Download } from "lucide-react";
@@ -130,7 +132,7 @@ function SourceRelationshipsSection({
         </p>
       </CardHeader>
       <CardContent>
-        {query.isLoading ? (
+        {showInitialQuerySkeleton(query) ? (
           <DataTableSkeleton rows={5} cols={4} />
         ) : query.error ? (
           <QueryErrorAlert title="Could not load relationships">
@@ -271,17 +273,44 @@ export default function SourceDetailPage() {
     return () => URL.revokeObjectURL(nextUrl);
   }, [rawBlob.data]);
 
+  function safeDownloadFilename(name: string): string {
+    const trimmed = name.trim().replace(/[/\\]/g, "_");
+    return trimmed.length > 0 ? trimmed : "download";
+  }
+
+  /** Save bytes in-browser; required when `file://` URLs from `/get_file_url` cannot be opened from http(s) (same as {@link embeddableBinaryUrl}). */
+  function triggerBlobDownload(blob: Blob, filename: string) {
+    const safe = safeDownloadFilename(filename);
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = safe;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objUrl);
+  }
+
   async function handleDownload() {
-    if (!s?.storage_url) { toast.error("No storage URL"); return; }
+    if (!id) return;
     try {
-      const { url } = await getFileUrl(s.storage_url);
-      window.open(url, "_blank");
+      const filename = s?.original_filename || s?.id || "download";
+      if (s?.storage_url) {
+        const { url } = await getFileUrl(s.storage_url);
+        if (!url.startsWith("file://")) {
+          window.open(url, "_blank");
+          return;
+        }
+      }
+      const blob = await getSourceContentBlob(id);
+      triggerBlobDownload(blob, filename);
     } catch (err) {
       toast.error(`Download failed: ${err}`);
     }
   }
 
-  if (source.isLoading)
+  if (showInitialQuerySkeleton(source))
     return (
       <PageShell title="Loading…">
         <DetailPageSkeleton />
@@ -295,14 +324,25 @@ export default function SourceDetailPage() {
     );
   if (!s) return <PageShell title="Not Found"><div className="text-muted-foreground">Source not found.</div></PageShell>;
 
+  const sourceDetailRefreshing =
+    showBackgroundQueryRefresh(source) ||
+    showBackgroundQueryRefresh(sourceRelationships) ||
+    showBackgroundQueryRefresh(interpretations) ||
+    showBackgroundQueryRefresh(rawText) ||
+    showBackgroundQueryRefresh(signedFileUrl) ||
+    showBackgroundQueryRefresh(rawBlob);
+
   return (
     <PageShell
       title={s.original_filename || s.id}
       description={`Source · ${s.mime_type || "unknown"}`}
       actions={
-        <Button variant="outline" size="sm" onClick={handleDownload}>
-          <Download className="h-3 w-3 mr-1" /> Download
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {sourceDetailRefreshing ? <QueryRefreshIndicator /> : null}
+          <Button variant="outline" size="sm" onClick={handleDownload}>
+            <Download className="h-3 w-3 mr-1" /> Download
+          </Button>
+        </div>
       }
     >
       <div className="grid gap-4 md:grid-cols-2">
@@ -355,7 +395,7 @@ export default function SourceDetailPage() {
                 This file is about {fileSizeLabel(s.file_size)}. Inline text preview is disabled to avoid loading the entire body in the browser. Use
                 Download to open it locally.
               </p>
-            ) : rawText.isLoading ? (
+            ) : showInitialQuerySkeleton(rawText) ? (
               <InlineSkeleton className="h-32 w-full max-w-2xl" />
             ) : rawText.error ? (
               <QueryErrorAlert title="Could not load raw content">
@@ -379,7 +419,7 @@ export default function SourceDetailPage() {
                 Inline preview is disabled for files over {fileSizeLabel(INLINE_BLOB_MAX_BYTES)} when no storage URL is available. Use Download.
               </p>
             ) : useSignedStorageUrl ? (
-              signedFileUrl.isLoading ? (
+              showInitialQuerySkeleton(signedFileUrl) ? (
                 <InlineSkeleton className="h-48 w-full max-w-md" />
               ) : signedFileUrl.error ? (
                 <QueryErrorAlert title="Could not resolve image URL">
@@ -394,7 +434,7 @@ export default function SourceDetailPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">Image preview unavailable.</p>
               )
-            ) : rawBlob.isLoading ? (
+            ) : showInitialQuerySkeleton(rawBlob) ? (
               <InlineSkeleton className="h-48 w-full max-w-md" />
             ) : rawBlob.error ? (
               <QueryErrorAlert title="Could not load image preview">
@@ -407,7 +447,7 @@ export default function SourceDetailPage() {
             )
           ) : previewKind === "audio" ? (
             useSignedStorageUrl ? (
-              signedFileUrl.isLoading ? (
+              showInitialQuerySkeleton(signedFileUrl) ? (
                 <InlineSkeleton className="h-12 w-full max-w-md" />
               ) : signedFileUrl.error ? (
                 <QueryErrorAlert title="Could not resolve audio URL">
@@ -428,7 +468,7 @@ export default function SourceDetailPage() {
                 This file is about {fileSizeLabel(s.file_size)} with no direct storage path for streaming. Use Download to play it in an external
                 player.
               </p>
-            ) : rawBlob.isLoading ? (
+            ) : showInitialQuerySkeleton(rawBlob) ? (
               <InlineSkeleton className="h-12 w-full max-w-md" />
             ) : rawBlob.error ? (
               <QueryErrorAlert title="Could not load audio preview">
@@ -447,7 +487,7 @@ export default function SourceDetailPage() {
                 Inline preview is disabled for files over {fileSizeLabel(INLINE_BLOB_MAX_BYTES)} when no storage URL is available. Use Download.
               </p>
             ) : useSignedStorageUrl ? (
-              signedFileUrl.isLoading ? (
+              showInitialQuerySkeleton(signedFileUrl) ? (
                 <InlineSkeleton className="h-64 w-full" />
               ) : signedFileUrl.error ? (
                 <QueryErrorAlert title="Could not resolve PDF URL">
@@ -458,7 +498,7 @@ export default function SourceDetailPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">PDF preview unavailable.</p>
               )
-            ) : rawBlob.isLoading ? (
+            ) : showInitialQuerySkeleton(rawBlob) ? (
               <InlineSkeleton className="h-64 w-full" />
             ) : rawBlob.error ? (
               <QueryErrorAlert title="Could not load PDF preview">
@@ -480,7 +520,7 @@ export default function SourceDetailPage() {
       <Card className="mt-4">
         <CardHeader><CardTitle className="text-base">Interpretations</CardTitle></CardHeader>
         <CardContent>
-          {interpretations.isLoading ? (
+          {showInitialQuerySkeleton(interpretations) ? (
             <ListSkeleton rows={3} />
           ) : interpretations.data?.interpretations?.length ? (
             <div className="space-y-2">

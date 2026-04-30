@@ -3,20 +3,22 @@ import { useObservationsQuery } from "@/hooks/use_observations";
 import { useCreateObservation } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { EntityLink } from "@/components/shared/entity_link";
 import { SourceLink } from "@/components/shared/source_link";
 import { TypeBadge } from "@/components/shared/type_badge";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
 import { JsonViewer } from "@/components/shared/json_viewer";
-import { Pagination } from "@/components/shared/pagination";
+import { OffsetPagination as Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { toast } from "sonner";
 import { Plus, Search } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -99,7 +101,9 @@ export default function ObservationsPage() {
       title="Observations"
       description={query.data ? `${query.data.total.toLocaleString()} total` : undefined}
       actions={
-        <Dialog>
+        <div className="flex flex-wrap items-center gap-3">
+          {showBackgroundQueryRefresh(query) ? <QueryRefreshIndicator /> : null}
+          <Dialog>
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="h-3 w-3 mr-1" /> Create</Button>
           </DialogTrigger>
@@ -123,6 +127,7 @@ export default function ObservationsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       }
     >
       <div className="flex flex-wrap items-end gap-3">
@@ -135,7 +140,7 @@ export default function ObservationsPage() {
         <AgentFilterControl />
       </div>
 
-      {query.isLoading ? (
+      {showInitialQuerySkeleton(query) ? (
         <DataTableSkeleton rows={12} cols={7} />
       ) : query.error ? (
         <QueryErrorAlert title="Could not load observations">{query.error.message}</QueryErrorAlert>

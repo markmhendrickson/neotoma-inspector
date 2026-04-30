@@ -20,14 +20,18 @@ import {
   Database,
   Clock,
   Activity,
+  Repeat,
+  MessageSquare,
   MessageSquareText,
   Cpu,
   ShieldCheck,
+  KeyRound,
   Settings,
   Loader2,
   Search,
 } from "lucide-react";
 import type { EntitySnapshot } from "@/types/api";
+import neotomaMarkUrl from "@/assets/neotoma_mark.svg?url";
 
 const ENTITY_SUGGESTION_LIMIT = 4;
 const SOURCE_SUGGESTION_LIMIT = 4;
@@ -37,7 +41,10 @@ const navGroups = [
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard },
       { to: "/conversations", label: "Conversations", icon: MessageSquareText },
+      { to: "/turns", label: "Turns", icon: Repeat },
+      { to: "/compliance", label: "Compliance", icon: ShieldCheck },
       { to: "/activity", label: "Activity", icon: Activity },
+      { to: "/feedback", label: "Feedback", icon: MessageSquare },
     ],
   },
   {
@@ -55,6 +62,7 @@ const navGroups = [
       { to: "/timeline", label: "Timeline", icon: Clock },
       { to: "/interpretations", label: "Interpretations", icon: Cpu },
       { to: "/agents", label: "Agents", icon: ShieldCheck },
+      { to: "/agents/grants", label: "Agent grants", icon: KeyRound },
     ],
   },
   {
@@ -82,9 +90,19 @@ export function Sidebar() {
     return () => window.clearTimeout(timeout);
   }, [search]);
 
+  // Longest-prefix match across all nav items so nested entries (e.g.
+  // `/agents/grants` under `/agents`) don't double-highlight their parent.
+  const allNavTargets = navGroups.flatMap((g) => g.items.map((i) => i.to));
   function isActive(to: string) {
     if (to === "/") return location.pathname === "/";
-    return location.pathname.startsWith(to);
+    if (!location.pathname.startsWith(to)) return false;
+    const longerMatch = allNavTargets.find(
+      (other) =>
+        other !== to &&
+        other.startsWith(to) &&
+        location.pathname.startsWith(other),
+    );
+    return !longerMatch;
   }
 
   function navigateToSearchResults(query: string) {
@@ -157,39 +175,42 @@ export function Sidebar() {
     <aside className="hidden w-64 shrink-0 border-r bg-sidebar md:block">
       <div className="flex h-14 items-center border-b px-4">
         <Link to="/" className="flex items-center gap-2 font-semibold text-sidebar-foreground">
-          <img src="/favicon.svg" alt="" width={20} height={20} className="h-5 w-5 shrink-0" />
+          <img
+            src={neotomaMarkUrl}
+            alt=""
+            width={20}
+            height={20}
+            className="h-5 w-5 shrink-0"
+          />
           <span>Neotoma</span>
         </Link>
       </div>
       <ScrollArea className="h-[calc(100vh-3.5rem)]">
         <nav className="flex flex-col gap-1 p-3">
-          <div className="mb-2 rounded-lg border bg-sidebar-accent/20 p-3">
-            <div
-              ref={searchContainerRef}
-              className="relative"
-              onBlurCapture={handleSearchContainerBlur}
-            >
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/50" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  onFocus={() => setIsFocused(true)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      navigateToSearchResults(trimmedSearch);
-                    }
-                    if (event.key === "Escape") {
-                      setIsFocused(false);
-                    }
-                  }}
-                  placeholder="Search entities and sources"
-                  className="border-sidebar-border bg-sidebar pl-9 text-sidebar-foreground placeholder:text-sidebar-foreground/50"
-                  aria-label="Search entities and sources"
-                />
-              </div>
-              {showSuggestions ? (
+          <div
+            ref={searchContainerRef}
+            className="relative mb-2"
+            onBlurCapture={handleSearchContainerBlur}
+          >
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/50" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  navigateToSearchResults(trimmedSearch);
+                }
+                if (event.key === "Escape") {
+                  setIsFocused(false);
+                }
+              }}
+              placeholder="Search entities and sources"
+              className="border-sidebar-border bg-sidebar pl-9 text-sidebar-foreground placeholder:text-sidebar-foreground/50"
+              aria-label="Search entities and sources"
+            />
+            {showSuggestions ? (
                 <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
                   {isResolvingSuggestions ? (
                     <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
@@ -260,7 +281,6 @@ export function Sidebar() {
                   )}
                 </div>
               ) : null}
-            </div>
           </div>
           {navGroups.map((group, gi) => (
             <div key={gi}>

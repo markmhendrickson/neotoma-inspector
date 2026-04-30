@@ -18,12 +18,19 @@ const SchemaDetailPage = lazy(() => import("@/pages/schema_detail"));
 const TimelinePage = lazy(() => import("@/pages/timeline"));
 const TimelineEventDetailPage = lazy(() => import("@/pages/timeline_event_detail"));
 const RecentActivityPage = lazy(() => import("@/pages/recent_activity"));
+const FeedbackPage = lazy(() => import("@/pages/feedback"));
 const RecentConversationsPage = lazy(() => import("@/pages/recent_conversations"));
+const ConversationDetailPage = lazy(() => import("@/pages/conversation_detail"));
+const TurnsPage = lazy(() => import("@/pages/turns"));
+const TurnDetailPage = lazy(() => import("@/pages/turn_detail"));
 const InterpretationsPage = lazy(() => import("@/pages/interpretations"));
 const AgentsPage = lazy(() => import("@/pages/agents"));
 const AgentDetailPage = lazy(() => import("@/pages/agent_detail"));
+const AgentGrantsPage = lazy(() => import("@/pages/agent_grants"));
+const AgentGrantDetailPage = lazy(() => import("@/pages/agent_grant_detail"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const SandboxPage = lazy(() => import("@/pages/sandbox"));
+const ComplianceDashboardPage = lazy(() => import("@/pages/compliance"));
 
 function PageLoader() {
   return (
@@ -53,14 +60,21 @@ export default function App() {
           <Route path="/schemas" element={<SchemasPage />} />
           <Route path="/schemas/:entityType" element={<SchemaDetailPage />} />
           <Route path="/activity" element={<RecentActivityPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/conversations/:conversationId" element={<ConversationDetailPage />} />
           <Route path="/conversations" element={<RecentConversationsPage />} />
+          <Route path="/turns" element={<TurnsPage />} />
+          <Route path="/turns/:turnKey" element={<TurnDetailPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/timeline/:id" element={<TimelineEventDetailPage />} />
           <Route path="/interpretations" element={<InterpretationsPage />} />
           <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/agents/grants" element={<AgentGrantsPage />} />
+          <Route path="/agents/grants/:id" element={<AgentGrantDetailPage />} />
           <Route path="/agents/:key" element={<AgentDetailPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/sandbox" element={<SandboxPage />} />
+          <Route path="/compliance" element={<ComplianceDashboardPage />} />
         </Route>
       </Routes>
     </Suspense>

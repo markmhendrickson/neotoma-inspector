@@ -26,7 +26,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { Box, ChevronDown, Eye, FileText, GitBranch, Clock, Cpu, Shield, ListFilter, MessageSquareText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -109,6 +111,7 @@ export default function DashboardPage() {
   return (
     <PageShell
       title="Dashboard"
+      actions={showBackgroundQueryRefresh(stats) ? <QueryRefreshIndicator label="Updating stats" /> : undefined}
       description={
         !isApiUrlConfigured()
           ? "API not configured"
@@ -140,7 +143,7 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-      ) : stats.isLoading ? (
+      ) : showInitialQuerySkeleton(stats) ? (
         <DashboardStatsSkeleton />
       ) : stats.error ? (
         <QueryErrorAlert title="Could not load dashboard stats">{stats.error.message}</QueryErrorAlert>
@@ -164,7 +167,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {recentConversations.isLoading ? (
+              {showInitialQuerySkeleton(recentConversations) ? (
                 <ListSkeleton rows={4} />
               ) : recentConversations.error ? (
                 <QueryErrorAlert title="Could not load conversations">

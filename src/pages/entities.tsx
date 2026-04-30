@@ -4,13 +4,15 @@ import { useEntitiesQuery } from "@/hooks/use_entities";
 import { useStats } from "@/hooks/use_stats";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { TypeBadge } from "@/components/shared/type_badge";
-import { Pagination } from "@/components/shared/pagination";
+import { OffsetPagination as Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate, truncateId } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { EntitySnapshot } from "@/types/api";
 import { Search } from "lucide-react";
@@ -115,7 +117,11 @@ export default function EntitiesPage() {
   ];
 
   return (
-    <PageShell title="Entities" description={query.data ? `${query.data.total.toLocaleString()} total` : undefined}>
+    <PageShell
+      title="Entities"
+      description={query.data ? `${query.data.total.toLocaleString()} total` : undefined}
+      actions={showBackgroundQueryRefresh(query) ? <QueryRefreshIndicator /> : undefined}
+    >
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[200px] max-w-sm">
           <div className="relative">
@@ -205,7 +211,7 @@ export default function EntitiesPage() {
         </Select>
       </div>
 
-      {query.isLoading ? (
+      {showInitialQuerySkeleton(query) ? (
         <DataTableSkeleton rows={12} cols={5} />
       ) : query.error ? (
         <QueryErrorAlert title="Could not load entities">{query.error.message}</QueryErrorAlert>

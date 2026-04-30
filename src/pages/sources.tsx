@@ -6,13 +6,16 @@ import { PageShell } from "@/components/layout/page_shell";
 import { ListSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
-import { Pagination } from "@/components/shared/pagination";
+import { OffsetPagination as Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { LiveRelativeTime } from "@/components/shared/live_relative_time";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate, truncateId } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { toast } from "sonner";
 import { Plus, Upload, Search } from "lucide-react";
 import type { Source } from "@/types/api";
@@ -68,7 +71,8 @@ export default function SourcesPage() {
     <PageShell
       title="Sources"
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {showBackgroundQueryRefresh(sources) ? <QueryRefreshIndicator /> : null}
           <Dialog>
             <DialogTrigger asChild><Button size="sm"><Plus className="h-3 w-3 mr-1" /> Store</Button></DialogTrigger>
             <DialogContent className="max-w-2xl">
@@ -167,7 +171,7 @@ export default function SourcesPage() {
         </div>
       </div>
 
-      {sources.isLoading ? (
+      {showInitialQuerySkeleton(sources) ? (
         <ListSkeleton rows={10} />
       ) : sources.error ? (
         <QueryErrorAlert title="Could not load sources">{sources.error.message}</QueryErrorAlert>
@@ -177,9 +181,10 @@ export default function SourcesPage() {
             {displayedSources.map((source) => (
               <div key={source.id} className="rounded-md border p-3">
                 <div className="flex items-start gap-3">
-                  <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
-                    {relativeTime(source.created_at)}
-                  </span>
+                  <LiveRelativeTime
+                    iso={source.created_at}
+                    className="inline-block w-12 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Link
@@ -282,17 +287,3 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-function relativeTime(ts: string | undefined): string {
-  if (!ts) return "";
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return "";
-  const diffMs = Date.now() - d.getTime();
-  const mins = Math.floor(diffMs / 60000);
-  const hrs = Math.floor(mins / 60);
-  const days = Math.floor(hrs / 24);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
-  if (hrs < 24) return `${hrs}h`;
-  if (days < 30) return `${days}d`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}

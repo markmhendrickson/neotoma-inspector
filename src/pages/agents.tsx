@@ -11,11 +11,13 @@ import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { useAgents } from "@/hooks/use_agents";
 import type { AgentDirectoryEntry, RecordActivityType } from "@/types/api";
 
@@ -128,6 +130,7 @@ export default function AgentsPage() {
     <PageShell
       title="Agents"
       description="Distinct writers seen across observations, sources, relationships, interpretations, and timeline events. Rows are derived from AAuth / clientInfo provenance stamped on each record."
+      actions={showBackgroundQueryRefresh(agentsQ) ? <QueryRefreshIndicator /> : undefined}
     >
       <div className="flex flex-wrap items-end gap-3">
         <Input
@@ -143,7 +146,7 @@ export default function AgentsPage() {
         )}
       </div>
 
-      {agentsQ.isLoading ? (
+      {showInitialQuerySkeleton(agentsQ) ? (
         <DataTableSkeleton rows={12} cols={9} />
       ) : agentsQ.error ? (
         <QueryErrorAlert title="Could not load agents">{agentsQ.error.message}</QueryErrorAlert>

@@ -3,13 +3,15 @@ import { Link } from "react-router-dom";
 import { useTimeline } from "@/hooks/use_timeline";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { EntityLink } from "@/components/shared/entity_link";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
-import { Pagination } from "@/components/shared/pagination";
+import { OffsetPagination as Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { TimelineEvent } from "@/types/api";
 
@@ -81,7 +83,11 @@ export default function TimelinePage() {
   const displayed = filterRows(events);
 
   return (
-    <PageShell title="Timeline" description="Chronological event stream">
+    <PageShell
+      title="Timeline"
+      description="Chronological event stream"
+      actions={showBackgroundQueryRefresh(timeline) ? <QueryRefreshIndicator /> : undefined}
+    >
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="text-xs text-muted-foreground">Start Date</label>
@@ -95,7 +101,7 @@ export default function TimelinePage() {
         <AgentFilterControl />
       </div>
 
-      {timeline.isLoading ? (
+      {showInitialQuerySkeleton(timeline) ? (
         <DataTableSkeleton rows={12} cols={5} />
       ) : timeline.error ? (
         <QueryErrorAlert title="Could not load timeline">{timeline.error.message}</QueryErrorAlert>

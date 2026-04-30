@@ -21,6 +21,8 @@
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InlineSkeleton } from "@/components/shared/query_status";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { useSession } from "@/hooks/use_infra";
 import type {
@@ -109,10 +111,13 @@ export function SessionAttestationCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Current Session Attestation</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base">Current Session Attestation</CardTitle>
+          {showBackgroundQueryRefresh(session) ? <QueryRefreshIndicator /> : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        {session.isLoading ? (
+        {showInitialQuerySkeleton(session) ? (
           <div className="space-y-2">
             <InlineSkeleton className="h-4 w-full max-w-xs" />
             <InlineSkeleton className="h-4 w-full max-w-sm" />

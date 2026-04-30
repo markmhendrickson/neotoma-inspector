@@ -8,7 +8,8 @@
  *
  * The component renders:
  * - Total rows sampled.
- * - Bars per trust tier (hardware / software / unverified_client / anonymous).
+ * - One bar per trust tier (hardware / operator_attested / software /
+ *   unverified_client / anonymous).
  * - A distinct-agent count (by thumbprint or client name).
  */
 
@@ -22,6 +23,8 @@ import { listTimeline } from "@/api/endpoints/timeline";
 import { listInterpretations } from "@/api/endpoints/interpretations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InlineSkeleton } from "@/components/shared/query_status";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AgentBadge } from "./agent_badge";
 import {
@@ -56,6 +59,7 @@ function emptyStats(): TierStats {
     total: 0,
     by_tier: {
       hardware: 0,
+      operator_attested: 0,
       software: 0,
       unverified_client: 0,
       anonymous: 0,
@@ -128,12 +132,19 @@ export function AttributionSummary() {
     return stats;
   }, [obs.data, rels.data, srcs.data, tl.data, interps.data]);
 
-  const loading =
-    obs.isLoading ||
-    rels.isLoading ||
-    srcs.isLoading ||
-    tl.isLoading ||
-    interps.isLoading;
+  const initialLoading =
+    showInitialQuerySkeleton(obs) ||
+    showInitialQuerySkeleton(rels) ||
+    showInitialQuerySkeleton(srcs) ||
+    showInitialQuerySkeleton(tl) ||
+    showInitialQuerySkeleton(interps);
+
+  const attributionRefreshing =
+    showBackgroundQueryRefresh(obs) ||
+    showBackgroundQueryRefresh(rels) ||
+    showBackgroundQueryRefresh(srcs) ||
+    showBackgroundQueryRefresh(tl) ||
+    showBackgroundQueryRefresh(interps);
 
   const topAgents = useMemo(() => {
     return [...summary.distinct_agents.entries()]
@@ -145,10 +156,13 @@ export function AttributionSummary() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Attribution Coverage</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base">Attribution Coverage</CardTitle>
+          {attributionRefreshing ? <QueryRefreshIndicator /> : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        {loading && summary.total === 0 ? (
+        {initialLoading && summary.total === 0 ? (
           <div className="space-y-2">
             <InlineSkeleton className="h-4 w-full max-w-xs" />
             <InlineSkeleton className="h-4 w-full max-w-sm" />
@@ -168,6 +182,11 @@ export function AttributionSummary() {
               <TierBar
                 tier="hardware"
                 count={summary.by_tier.hardware}
+                total={summary.total}
+              />
+              <TierBar
+                tier="operator_attested"
+                count={summary.by_tier.operator_attested}
                 total={summary.total}
               />
               <TierBar
@@ -228,7 +247,9 @@ export function AttributionSummary() {
 /** Long-form tier meanings (aligned with {@link AgentBadge} tooltips). */
 const TIER_DESCRIPTION: Record<AgentAttributionTier, string> = {
   hardware:
-    "AAuth-verified writes stamped with a hardware-backed key (for example Secure Enclave or a security key).",
+    "AAuth-verified writes whose key is cryptographically attested to live in a hardware root of trust (for example Secure Enclave, TPM, or a security key).",
+  operator_attested:
+    "AAuth-verified writes whose issuer (or issuer:subject) is in the operator-managed allowlist; trust is operator-vouched, not hardware-attested.",
   software: "AAuth-verified writes stamped with a software-only cryptographic key.",
   unverified_client:
     "Writes attributed from MCP initialize clientInfo (name and version). Self-reported, not cryptographically verified.",
@@ -248,12 +269,14 @@ function TierBar({
   const pct = total > 0 ? (count / total) * 100 : 0;
   const color: Record<AgentAttributionTier, string> = {
     hardware: "bg-emerald-500",
+    operator_attested: "bg-teal-500",
     software: "bg-sky-500",
     unverified_client: "bg-amber-500",
     anonymous: "bg-zinc-400",
   };
   const label: Record<AgentAttributionTier, string> = {
     hardware: "Hardware-verified",
+    operator_attested: "Operator-attested",
     software: "Software-verified",
     unverified_client: "Self-reported",
     anonymous: "Anonymous",
@@ -301,7 +324,8 @@ function fakeAttribution(
   if (tier === "unverified_client") {
     return { attribution_tier: tier, client_name: label };
   }
-  // hardware/software — prefer parsing back out of the label
+  // hardware / operator_attested / software — prefer parsing back out of
+  // the label so the AgentBadge can re-render the same tooltip rows.
   if (label.startsWith("key:")) {
     return { attribution_tier: tier, agent_thumbprint: label.slice(4) };
   }

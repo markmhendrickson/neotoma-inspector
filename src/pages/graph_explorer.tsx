@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { Search } from "lucide-react";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 
 export default function GraphExplorerPage() {
   const [searchParams] = useSearchParams();
@@ -133,7 +135,11 @@ export default function GraphExplorerPage() {
   }, [navigate]);
 
   return (
-    <PageShell title="Graph Explorer" description="Interactive neighborhood visualization">
+    <PageShell
+      title="Graph Explorer"
+      description="Interactive neighborhood visualization"
+      actions={showBackgroundQueryRefresh(graph) ? <QueryRefreshIndicator /> : undefined}
+    >
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <div className="relative min-w-[250px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -155,7 +161,7 @@ export default function GraphExplorerPage() {
 
       <div className="flex gap-4">
         <div className="flex-1 h-[600px] rounded-lg border bg-background">
-          {graph.isLoading ? (
+          {showInitialQuerySkeleton(graph) ? (
             <GraphAreaSkeleton />
           ) : graph.error && activeNodeId ? (
             <div className="flex h-full items-center justify-center p-6">

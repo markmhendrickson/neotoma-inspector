@@ -91,6 +91,29 @@ export function relativeTime(ts: string | undefined | null): string {
   }
 }
 
+/**
+ * Delay before recomputing {@link relativeTime} for the same ISO timestamp.
+ * Returns 0 when the displayed value is a calendar date (stable until midnight).
+ */
+export function relativeTimeRefreshMs(ts: string | undefined | null): number {
+  if (!ts) return 0;
+  try {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return 0;
+    const diffMs = Date.now() - d.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    const hrs = Math.floor(mins / 60);
+    const days = Math.floor(hrs / 24);
+    if (mins < 1) return 10_000;
+    if (mins < 60) return 30_000;
+    if (hrs < 24) return 60_000;
+    if (days < 30) return 300_000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Absolute, locale-aware date/time string. Returns empty when invalid. */
 export function absoluteDateTime(ts: string | undefined | null): string {
   if (!ts) return "";

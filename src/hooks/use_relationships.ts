@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isApiUrlConfigured } from "@/api/client";
 import { listRelationships, getRelationshipSnapshot } from "@/api/endpoints/relationships";
 
@@ -6,6 +6,7 @@ export function useRelationships() {
   return useQuery({
     queryKey: ["relationships"],
     queryFn: listRelationships,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }

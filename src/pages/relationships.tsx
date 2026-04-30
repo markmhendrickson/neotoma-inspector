@@ -3,7 +3,7 @@ import { useRelationships } from "@/hooks/use_relationships";
 import { useCreateRelationship } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { EntityLink } from "@/components/shared/entity_link";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { RELATIONSHIP_TYPES } from "@/lib/constants";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -75,7 +77,9 @@ export default function RelationshipsPage() {
       title="Relationships"
       description={relationships.data ? `${relationships.data.relationships.length} total` : undefined}
       actions={
-        <Dialog>
+        <div className="flex flex-wrap items-center gap-3">
+          {showBackgroundQueryRefresh(relationships) ? <QueryRefreshIndicator /> : null}
+          <Dialog>
           <DialogTrigger asChild><Button size="sm"><Plus className="h-3 w-3 mr-1" /> Create</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Create Relationship</DialogTitle><DialogDescription>Create a typed edge between two entities.</DialogDescription></DialogHeader>
@@ -103,6 +107,7 @@ export default function RelationshipsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       }
     >
       <RelationshipsTable query={relationships} columns={columns} />
@@ -121,7 +126,7 @@ function RelationshipsTable({
   const { filterRows, AgentFilterControl } = useAgentAttributionFilter(rows);
   const displayed = filterRows(rows);
 
-  if (query.isLoading) return <DataTableSkeleton rows={12} cols={7} />;
+  if (showInitialQuerySkeleton(query)) return <DataTableSkeleton rows={12} cols={7} />;
   if (query.error)
     return <QueryErrorAlert title="Could not load relationships">{query.error.message}</QueryErrorAlert>;
 

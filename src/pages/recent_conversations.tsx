@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { MessageSquareText } from "lucide-react";
 import { PageShell } from "@/components/layout/page_shell";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { ListSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,26 +24,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EntityLink, EntityOpenIconLink } from "@/components/shared/entity_link";
+import { EntityOpenIconLink } from "@/components/shared/entity_link";
 import { TypeBadge } from "@/components/shared/type_badge";
 import { AgentBadge } from "@/components/shared/agent_badge";
-import {
-  humanizeEntityType,
-  humanizeRelationshipType,
-  relativeTime,
-  shortId,
-  truncate,
-} from "@/lib/humanize";
+import { LiveRelativeTime } from "@/components/shared/live_relative_time";
+import { shortId, truncate } from "@/lib/humanize";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { useRecentConversations } from "@/hooks/use_recent_conversations";
 import { useAgents } from "@/hooks/use_agents";
+import {
+  groupMessagesByTurn,
+  HookActivityChip,
+  messageRoleLabel,
+  RelatedEntityRow,
+  totalNestedRelatedEntitiesInConversation,
+  totalNestedSourcesInConversation,
+} from "@/components/shared/conversation_common";
 import { toast } from "sonner";
-import type {
-  RecentConversationItem,
-  RecentConversationMessage,
-  RecentConversationRelatedEntity,
-} from "@/types/api";
+import type { RecentConversationItem, RecentConversationMessage } from "@/types/api";
 
 const PAGE_SIZE = 25;
+
+/** Select value for "no agent filter"; must not collide with real `agent_key` values from the API. */
+const AGENT_FILTER_ALL = "__inspector_agent_all__";
 
 type TimeRangeTab = "all" | "today" | "recent" | "custom";
 
@@ -108,32 +113,6 @@ function todayDateInputValue(): string {
   return `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
 }
 
-/** Total related-entity rows across all messages (same entity may appear more than once). */
-function totalNestedRelatedEntitiesInConversation(conversation: RecentConversationItem): number {
-  let n = 0;
-  for (const message of conversation.messages) {
-    n += message.related_entities.length;
-  }
-  return n;
-}
-
-/** Related rows that represent file-backed or explicit source links (subset of nested entities). */
-function isNestedSourceRelatedEntity(entity: RecentConversationRelatedEntity): boolean {
-  const type = entity.entity_type?.trim().toLowerCase() ?? "";
-  const rt = entity.relationship_type?.trim().toUpperCase() ?? "";
-  return type === "source" || rt === "EMBEDS";
-}
-
-function totalNestedSourcesInConversation(conversation: RecentConversationItem): number {
-  let n = 0;
-  for (const message of conversation.messages) {
-    for (const rel of message.related_entities) {
-      if (isNestedSourceRelatedEntity(rel)) n += 1;
-    }
-  }
-  return n;
-}
-
 export default function RecentConversationsPage() {
   const [offset, setOffset] = useState(0);
   const [timeTab, setTimeTab] = useState<TimeRangeTab>("all");
@@ -143,7 +122,7 @@ export default function RecentConversationsPage() {
     activity_after: string;
     activity_before: string;
   } | null>(null);
-  const [agentKeyFilter, setAgentKeyFilter] = useState("all");
+  const [agentKeyFilter, setAgentKeyFilter] = useState(AGENT_FILTER_ALL);
 
   const agentsQuery = useAgents();
   const agentsSorted = useMemo(() => {
@@ -159,7 +138,7 @@ export default function RecentConversationsPage() {
       activity_before?: string;
       agent_key?: string;
     } = { limit: PAGE_SIZE, offset };
-    if (agentKeyFilter !== "all") {
+    if (agentKeyFilter !== AGENT_FILTER_ALL) {
       base.agent_key = agentKeyFilter;
     }
     if (timeTab === "today") {
@@ -180,6 +159,8 @@ export default function RecentConversationsPage() {
 
   const items = conversations.data?.items ?? [];
   const hasMore = conversations.data?.has_more ?? false;
+  const showInitialSkeleton = showInitialQuerySkeleton(conversations);
+  const showBackgroundRefresh = showBackgroundQueryRefresh(conversations);
 
   function handleTabChange(next: string) {
     setTimeTab(next as TimeRangeTab);
@@ -201,6 +182,7 @@ export default function RecentConversationsPage() {
     <PageShell
       title="Conversations"
       titleIcon={<MessageSquareText className="h-5 w-5" aria-hidden />}
+      actions={showBackgroundRefresh ? <QueryRefreshIndicator /> : undefined}
     >
       <div className="space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -213,22 +195,23 @@ export default function RecentConversationsPage() {
             </TabsList>
           </Tabs>
           <div className="flex flex-col gap-1.5 lg:w-72">
-            <Label htmlFor="conv-agent-filter" className="text-xs text-muted-foreground">
-              Agent
-            </Label>
             <Select
               value={agentKeyFilter}
               onValueChange={(v) => {
                 setAgentKeyFilter(v);
                 setOffset(0);
               }}
-              disabled={agentsQuery.isLoading}
+              disabled={showInitialQuerySkeleton(agentsQuery)}
             >
-              <SelectTrigger id="conv-agent-filter" className="h-9">
+              <SelectTrigger
+                id="conv-agent-filter"
+                className="h-9"
+                aria-label="Filter conversations by agent"
+              >
                 <SelectValue placeholder="All agents" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All agents</SelectItem>
+                <SelectItem value={AGENT_FILTER_ALL}>All agents</SelectItem>
                 {agentsSorted.map((a) => (
                   <SelectItem key={a.agent_key} value={a.agent_key}>
                     {a.label}
@@ -236,9 +219,6 @@ export default function RecentConversationsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Matches the latest observation on each conversation (same keys as the Agents page).
-            </p>
           </div>
         </div>
 
@@ -294,7 +274,7 @@ export default function RecentConversationsPage() {
 
         <Separator />
 
-        {conversations.isLoading ? (
+        {showInitialSkeleton ? (
           <ListSkeleton rows={6} />
         ) : conversations.error ? (
           <QueryErrorAlert title="Could not load conversations">{conversations.error.message}</QueryErrorAlert>
@@ -369,6 +349,7 @@ function ConversationCard({ conversation }: { conversation: RecentConversationIt
     nestedEntityCount === 1 ? "1 entity" : `${nestedEntityCount} entities`;
   const sourceLabel =
     nestedSourceCount === 1 ? "1 source" : `${nestedSourceCount} sources`;
+  const turnGroups = groupMessagesByTurn(conversation.messages);
 
   return (
     <details className="rounded-lg border bg-card shadow-sm open:ring-1 open:ring-border">
@@ -376,11 +357,13 @@ function ConversationCard({ conversation }: { conversation: RecentConversationIt
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h2 className="min-w-0 text-base font-semibold text-foreground">
-              <EntityLink
-                id={conversation.conversation_id}
-                name={title}
+              <Link
+                to={`/conversations/${encodeURIComponent(conversation.conversation_id)}`}
                 className="inline-block max-w-full truncate align-middle text-base font-semibold text-foreground hover:underline"
-              />
+                title={conversation.conversation_id}
+              >
+                {title}
+              </Link>
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <TypeBadge type="conversation" humanize />
@@ -388,7 +371,7 @@ function ConversationCard({ conversation }: { conversation: RecentConversationIt
               <span>{conversation.message_count} messages</span>
               <span>{entityLabel}</span>
               <span>{sourceLabel}</span>
-              <span>{relativeTime(conversation.activity_at)}</span>
+              <LiveRelativeTime iso={conversation.activity_at} />
             </div>
           </div>
           <EntityOpenIconLink id={conversation.conversation_id} title={conversation.conversation_id} />
@@ -402,8 +385,8 @@ function ConversationCard({ conversation }: { conversation: RecentConversationIt
           </div>
         ) : (
           <div className="space-y-3">
-            {conversation.messages.map((message) => (
-              <MessageCard key={message.message_id} message={message} />
+            {turnGroups.map((group) => (
+              <ConversationTurnGroupCard key={group.groupKey} group={group} />
             ))}
           </div>
         )}
@@ -412,15 +395,87 @@ function ConversationCard({ conversation }: { conversation: RecentConversationIt
   );
 }
 
-function MessageCard({ message }: { message: RecentConversationMessage }) {
-  const role = message.role?.trim() || "message";
+function ConversationTurnGroupCard({
+  group,
+}: {
+  group: ReturnType<typeof groupMessagesByTurn>[number];
+}) {
+  const relatedCount = group.messages.reduce(
+    (total, message) => total + message.related_entities.length,
+    0,
+  );
+  const firstMessage = group.messages[0];
+  const activityAt = group.messages[group.messages.length - 1]?.activity_at ?? firstMessage?.activity_at;
+
+  return (
+    <section className="rounded-md border bg-background">
+      <div className="border-b px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
+            Turn
+          </span>
+          {activityAt ? (
+            <LiveRelativeTime iso={activityAt} className="text-xs text-muted-foreground" />
+          ) : null}
+          <span className="text-xs text-muted-foreground">
+            {group.messages.length} {group.messages.length === 1 ? "message" : "messages"}
+          </span>
+          <span className="text-xs text-muted-foreground">{relatedCount} related</span>
+          {firstMessage ? <HookActivityChip message={firstMessage} /> : null}
+        </div>
+        {group.turnKey ? (
+          <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+            {group.turnKey}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-3 p-3">
+        <div className="space-y-2">
+          {group.userMessages.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No user message recorded for this turn.</p>
+          ) : (
+            group.userMessages.map((message) => (
+              <MessageCard key={message.message_id} message={message} variant="user" />
+            ))
+          )}
+        </div>
+
+        <div className="space-y-2 border-l-2 border-muted pl-3">
+          {group.responseMessages.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No agent response recorded for this turn.</p>
+          ) : (
+            group.responseMessages.map((message) => (
+              <MessageCard key={message.message_id} message={message} variant="agent" />
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MessageCard({
+  message,
+  variant = "default",
+}: {
+  message: RecentConversationMessage;
+  variant?: "default" | "user" | "agent";
+}) {
+  const role = messageRoleLabel(message);
   const preview = truncate(
     message.content?.trim() || message.canonical_name?.trim() || shortId(message.message_id, 10),
     120
   );
+  const boxTone =
+    variant === "user"
+      ? "border-primary/25 bg-primary/5"
+      : variant === "agent"
+        ? "border-muted bg-muted/20"
+        : "border bg-background";
 
   return (
-    <details className="rounded-md border bg-background">
+    <details className={`rounded-md ${boxTone}`}>
       <summary className="cursor-pointer list-none px-3 py-2 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -428,12 +483,14 @@ function MessageCard({ message }: { message: RecentConversationMessage }) {
               <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide">
                 {role}
               </span>
-              <span className="text-xs text-muted-foreground">
-                {relativeTime(message.activity_at)}
-              </span>
+              <LiveRelativeTime
+                iso={message.activity_at}
+                className="text-xs text-muted-foreground"
+              />
               <span className="text-xs text-muted-foreground">
                 {message.related_entities.length} related
               </span>
+              <HookActivityChip message={message} />
             </div>
             <p className="mt-1 break-words text-sm">{preview}</p>
           </div>
@@ -477,29 +534,3 @@ function MessageCard({ message }: { message: RecentConversationMessage }) {
   );
 }
 
-function RelatedEntityRow({ entity }: { entity: RecentConversationRelatedEntity }) {
-  const label =
-    entity.title?.trim() || entity.canonical_name?.trim() || shortId(entity.entity_id, 10);
-
-  return (
-    <div className="flex items-center justify-between gap-3 rounded border px-3 py-2">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            {humanizeRelationshipType(entity.relationship_type)}
-          </span>
-          {entity.entity_type ? (
-            <TypeBadge
-              type={entity.entity_type}
-              label={humanizeEntityType(entity.entity_type)}
-              humanize
-            />
-          ) : null}
-        </div>
-        <div className="mt-1 min-w-0">
-          <EntityLink id={entity.entity_id} name={label} className="truncate" />
-        </div>
-      </div>
-    </div>
-  );
-}

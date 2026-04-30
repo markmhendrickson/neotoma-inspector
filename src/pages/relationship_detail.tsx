@@ -5,12 +5,14 @@ import { PageShell } from "@/components/layout/page_shell";
 import { DetailPageSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/shared/confirm_dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EntityLink } from "@/components/shared/entity_link";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { AttributionCard } from "@/components/shared/attribution_card";
 import { AgentBadge } from "@/components/shared/agent_badge";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { toast } from "sonner";
 import { Trash2, RotateCcw } from "lucide-react";
 
@@ -25,7 +27,7 @@ export default function RelationshipDetailPage() {
 
   const s = snapshot.data?.snapshot;
 
-  if (snapshot.isLoading)
+  if (showInitialQuerySkeleton(snapshot))
     return (
       <PageShell title="Loading…">
         <DetailPageSkeleton />
@@ -49,7 +51,8 @@ export default function RelationshipDetailPage() {
       title={`${s.relationship_type}`}
       description={`${s.source_entity_id} → ${s.target_entity_id}`}
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {showBackgroundQueryRefresh(snapshot) ? <QueryRefreshIndicator /> : null}
           <ConfirmDialog
             trigger={<Button variant="outline" size="sm"><Trash2 className="h-3 w-3 mr-1" /> Delete</Button>}
             title="Delete Relationship"

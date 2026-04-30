@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isApiUrlConfigured } from "@/api/client";
 import { listRecentConversations } from "@/api/endpoints/recent_conversations";
 
@@ -12,7 +12,7 @@ export function useRecentConversations(params?: {
   return useQuery({
     queryKey: ["recent_conversations", params],
     queryFn: () => listRecentConversations(params),
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }

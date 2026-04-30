@@ -11,9 +11,75 @@
  */
 export type AgentAttributionTier =
   | "hardware"
+  | "operator_attested"
   | "software"
   | "unverified_client"
   | "anonymous";
+
+/**
+ * Attestation envelope discriminator. Mirrors `AttestationOutcome.format`
+ * from the server-side `aauth_attestation_verifier`. Kept in this file
+ * (rather than re-imported from `endpoints/session`) so any per-row
+ * provenance enrichment that wants to surface the attestation format
+ * shares one canonical type with `/session`.
+ */
+export type AttestationFormat =
+  | "apple-secure-enclave"
+  | "webauthn-packed"
+  | "tpm2";
+
+export type AttestationFailureReason =
+  | "format_unsupported"
+  | "challenge_mismatch"
+  | "key_binding_mismatch"
+  | "chain_invalid"
+  | "signature_invalid"
+  | "aaguid_not_trusted"
+  | "pubarea_mismatch"
+  | "verifier_not_implemented"
+  | "not_present";
+
+/**
+ * Per-row attestation diagnostic block, optionally surfaced through
+ * provenance and `AgentDirectoryEntry`. Today the server only stamps
+ * the {@link AgentAttributionTier}; this shape pre-positions the
+ * Inspector for the v0.9.0 / FU-1 envelope drill-down without
+ * triggering a follow-up Inspector release once the server starts
+ * emitting it.
+ *
+ * `verified=true` matches `decision.attestation` on the `/session`
+ * endpoint when the agent's `cnf.attestation` envelope was accepted.
+ * `verified=false` carries a `reason` so failed promotions are
+ * debuggable from the row.
+ */
+export interface AgentAttestationOutcome {
+  verified: boolean;
+  format?: AttestationFormat | null;
+  reason?: AttestationFailureReason | null;
+  /** Authenticator AAGUID (WebAuthn/TPM) or device-key model identifier. */
+  aaguid?: string | null;
+  /**
+   * Whether the attested key matches `cnf.jwk` (RFC 7638 thumbprint
+   * comparison). Primary trust gate alongside chain verification.
+   */
+  key_binding_matches_cnf_jwk?: boolean | null;
+  /** Truncated `challenge` digest (hex) — full value never reaches the UI. */
+  challenge_digest?: string | null;
+  /**
+   * One per cert in the attestation chain, leaf → root. Used by the
+   * envelope panel to summarise the trust path without exposing raw
+   * X.509 bodies.
+   */
+  chain?: AttestationChainEntry[] | null;
+}
+
+export interface AttestationChainEntry {
+  subject_cn?: string | null;
+  issuer_cn?: string | null;
+  serial?: string | null;
+  not_before?: string | null;
+  not_after?: string | null;
+}
 
 export interface AgentAttribution {
   agent_public_key?: string;
@@ -27,6 +93,20 @@ export interface AgentAttribution {
   attribution_tier?: AgentAttributionTier;
   /** ISO-8601 timestamp when the attribution was recorded. */
   attributed_at?: string;
+  /**
+   * Optional per-row attestation outcome. Currently never populated by
+   * the v0.8.0 server (which only resolves attestation at the
+   * `/session` boundary), but the Inspector reads it through to show
+   * extra tooltip rows the moment the server starts stamping
+   * provenance with it. See `AgentAttestationOutcome`.
+   */
+  attestation?: AgentAttestationOutcome | null;
+  /**
+   * Source of an `operator_attested` tier promotion: whether the
+   * issuer alone was on the operator allowlist or whether the
+   * `iss:sub` composite was. Mirrors `decision.operator_allowlist_source`.
+   */
+  operator_allowlist_source?: "issuer" | "issuer_subject" | null;
 }
 
 export interface Entity {
@@ -304,6 +384,14 @@ export interface AgentDirectoryEntry {
   last_seen_at: string | null;
   total_records: number;
   record_counts: Partial<Record<RecordActivityType, number>>;
+  /**
+   * Latest attestation outcome observed for this agent. Surfaced on the
+   * agent detail page via `AttestationEnvelopePanel`. Optional and
+   * forward-compatible: today the v0.8.0 server returns `null`/absent;
+   * v0.9.0+ may stamp it once per-row attestation enrichment ships.
+   */
+  attestation?: AgentAttestationOutcome | null;
+  operator_allowlist_source?: "issuer" | "issuer_subject" | null;
 }
 
 export interface AgentsListResponse {
@@ -322,6 +410,62 @@ export interface AgentRecordsResponse {
   offset: number;
 }
 
+export type AgentCapabilityOp =
+  | "store_structured"
+  | "create_relationship"
+  | "correct"
+  | "retrieve";
+
+export interface AgentCapabilityEntry {
+  op: AgentCapabilityOp;
+  entity_types: string[];
+}
+
+export type AgentGrantStatus = "active" | "suspended" | "revoked";
+
+export interface AgentGrant {
+  grant_id: string;
+  user_id: string;
+  label: string;
+  capabilities: AgentCapabilityEntry[];
+  status: AgentGrantStatus;
+  match_sub?: string | null;
+  match_iss?: string | null;
+  match_thumbprint?: string | null;
+  notes?: string | null;
+  last_used_at?: string | null;
+  import_source?: string | null;
+  created_at?: string | null;
+  last_observation_at?: string | null;
+}
+
+export interface AgentGrantsListResponse {
+  grants: AgentGrant[];
+}
+
+export interface AgentGrantResponse {
+  grant: AgentGrant;
+}
+
+export interface AgentGrantCreateRequest {
+  label: string;
+  capabilities: AgentCapabilityEntry[];
+  status?: AgentGrantStatus;
+  match_sub?: string | null;
+  match_iss?: string | null;
+  match_thumbprint?: string | null;
+  notes?: string | null;
+}
+
+export interface AgentGrantUpdateRequest {
+  label?: string;
+  capabilities?: AgentCapabilityEntry[];
+  notes?: string | null;
+  match_sub?: string | null;
+  match_iss?: string | null;
+  match_thumbprint?: string | null;
+}
+
 export interface RecentConversationRelatedEntity {
   entity_id: string;
   entity_type?: string | null;
@@ -330,14 +474,82 @@ export interface RecentConversationRelatedEntity {
   relationship_type: string;
 }
 
+export interface ConversationTurnHookSummary {
+  hook_event_count: number;
+  tool_invocation_count: number;
+  store_structured_calls: number;
+  retrieve_calls: number;
+  retrieved_entity_count: number;
+  stored_entity_count: number;
+  neotoma_tool_failures: number;
+}
+
 export interface RecentConversationMessage {
   message_id: string;
   canonical_name?: string | null;
   role?: string | null;
+  /** Present on v0.6+ snapshots alongside legacy `role`. */
+  sender_kind?: string | null;
   content?: string | null;
   turn_key?: string | null;
   activity_at: string;
   related_entities: RecentConversationRelatedEntity[];
+  /**
+   * Per-turn hook activity summary derived from the matching
+   * `conversation_turn` (or legacy `turn_compliance` /
+   * `turn_activity`) entity by `turn_key`.
+   */
+  hook_summary?: ConversationTurnHookSummary | null;
+}
+
+export interface ConversationTurnSummary {
+  entity_id: string;
+  turn_key?: string | null;
+  session_id?: string | null;
+  turn_id?: string | null;
+  conversation_id?: string | null;
+  harness?: string | null;
+  harness_version?: string | null;
+  model?: string | null;
+  status?: string | null;
+  hook_events: string[];
+  missed_steps: string[];
+  tool_invocation_count: number;
+  store_structured_calls: number;
+  retrieve_calls: number;
+  neotoma_tool_failures: number;
+  retrieved_entity_ids: string[];
+  stored_entity_ids: string[];
+  injected_context_chars?: number | null;
+  failure_hint_shown?: boolean | null;
+  safety_net_used?: boolean | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  activity_at: string;
+  cwd?: string | null;
+  latest_write_provenance?: Record<string, unknown> | null;
+  hook_summary: ConversationTurnHookSummary;
+}
+
+export interface ConversationTurnRelatedEntity {
+  entity_id: string;
+  entity_type?: string | null;
+  canonical_name?: string | null;
+  title?: string | null;
+  relationship_type: string;
+  direction: "outgoing" | "incoming";
+}
+
+export interface ConversationTurnDetail extends ConversationTurnSummary {
+  related_entities: ConversationTurnRelatedEntity[];
+  messages: RecentConversationMessage[];
+}
+
+export interface ConversationTurnsResponse {
+  items: ConversationTurnSummary[];
+  has_more: boolean;
+  limit: number;
+  offset: number;
 }
 
 export interface RecentConversationItem {
@@ -372,7 +584,7 @@ export interface DashboardStats {
 /**
  * Rollup of attribution coverage across the write-path record types, used by
  * the Settings "Attribution" section. Counts are per-tier so hardware /
- * software / unverified_client / anonymous ratios can be rendered at a
+ * operator_attested / software / unverified_client / anonymous ratios can be rendered at a
  * glance. Backend may omit a bucket when the count is zero.
  */
 export interface AttributionSummary {
@@ -396,6 +608,8 @@ export interface ServerInfo {
   httpPort?: number;
   apiBase?: string;
   mcpUrl?: string;
+  /** Resolved `NEOTOMA_ENV` on the API process (`development` | `production`). */
+  neotoma_env?: string;
 }
 
 export interface UserInfo {

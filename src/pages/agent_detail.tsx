@@ -29,11 +29,14 @@ import {
 } from "@/components/ui/pagination";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AgentBadge } from "@/components/shared/agent_badge";
+import { AttestationEnvelopePanel } from "@/components/shared/attestation_envelope_panel";
 import { RecentRecordsFeed } from "@/components/shared/recent_records_feed";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { useAgent, useAgentRecords } from "@/hooks/use_agents";
 import type { RecordActivityType } from "@/types/api";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, KeyRound } from "lucide-react";
 
 const PAGE_SIZE = 50;
 
@@ -64,10 +67,12 @@ export default function AgentDetailPage() {
       agent_algorithm: a.agent_algorithm ?? undefined,
       agent_thumbprint: a.agent_thumbprint ?? undefined,
       agent_public_key: a.agent_public_key ?? undefined,
+      attestation: a.attestation ?? null,
+      operator_allowlist_source: a.operator_allowlist_source ?? null,
     };
   }, [agentQ.data]);
 
-  if (agentQ.isLoading) {
+  if (showInitialQuerySkeleton(agentQ)) {
     return (
       <PageShell title="Agent">
         <ListSkeleton rows={5} />
@@ -117,12 +122,37 @@ export default function AgentDetailPage() {
         </span>
       }
       actions={
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/agents">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            All agents
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {showBackgroundQueryRefresh(agentQ) || showBackgroundQueryRefresh(recordsQ) ? (
+            <QueryRefreshIndicator />
+          ) : null}
+          {(() => {
+            const params = new URLSearchParams();
+            params.set("promote", "1");
+            if (agent.label) params.set("label", agent.label);
+            if (agent.agent_sub) params.set("sub", agent.agent_sub);
+            if (agent.agent_iss) params.set("iss", agent.agent_iss);
+            if (agent.agent_thumbprint)
+              params.set("thumbprint", agent.agent_thumbprint);
+            const canPromote = Boolean(
+              agent.agent_sub || agent.agent_thumbprint,
+            );
+            return canPromote ? (
+              <Button asChild variant="default" size="sm">
+                <Link to={`/agents/grants?${params.toString()}`}>
+                  <KeyRound className="mr-1 h-4 w-4" />
+                  Promote to grant
+                </Link>
+              </Button>
+            ) : null;
+          })()}
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/agents">
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              All agents
+            </Link>
+          </Button>
+        </div>
       }
     >
       <div className="grid gap-4 lg:grid-cols-3">
@@ -176,6 +206,11 @@ export default function AgentDetailPage() {
         </Card>
       </div>
 
+      <AttestationEnvelopePanel
+        attestation={agent.attestation ?? null}
+        operatorAllowlistSource={agent.operator_allowlist_source ?? null}
+      />
+
       <Separator />
 
       <Card>
@@ -183,7 +218,7 @@ export default function AgentDetailPage() {
           <CardTitle>Records</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {recordsQ.isLoading ? (
+          {showInitialQuerySkeleton(recordsQ) ? (
             <ListSkeleton rows={6} />
           ) : recordsQ.error ? (
             <QueryErrorAlert title="Could not load records">{recordsQ.error.message}</QueryErrorAlert>

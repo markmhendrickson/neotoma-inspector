@@ -3,13 +3,15 @@ import { useSchemas } from "@/hooks/use_schemas";
 import { useRegisterSchema } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { TypeBadge } from "@/components/shared/type_badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -55,7 +57,9 @@ export default function SchemasPage() {
       title="Schemas"
       description={schemas.data ? `${schemas.data.schemas.length} registered` : undefined}
       actions={
-        <Dialog>
+        <div className="flex flex-wrap items-center gap-3">
+          {showBackgroundQueryRefresh(schemas) ? <QueryRefreshIndicator /> : null}
+          <Dialog>
           <DialogTrigger asChild><Button size="sm"><Plus className="h-3 w-3 mr-1" /> Register</Button></DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>Register Schema</DialogTitle><DialogDescription>Register a new entity type schema.</DialogDescription></DialogHeader>
@@ -76,9 +80,10 @@ export default function SchemasPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       }
     >
-      {schemas.isLoading ? (
+      {showInitialQuerySkeleton(schemas) ? (
         <DataTableSkeleton rows={8} cols={4} />
       ) : schemas.error ? (
         <QueryErrorAlert title="Could not load schemas">{schemas.error.message}</QueryErrorAlert>

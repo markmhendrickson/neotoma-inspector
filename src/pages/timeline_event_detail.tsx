@@ -7,6 +7,8 @@ import { EntityLink } from "@/components/shared/entity_link";
 import { SourceLink } from "@/components/shared/source_link";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { formatDate } from "@/lib/utils";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 
 export default function TimelineEventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,7 +16,7 @@ export default function TimelineEventDetailPage() {
 
   const ev = event.data?.event;
 
-  if (event.isLoading)
+  if (showInitialQuerySkeleton(event))
     return (
       <PageShell title="Loading…">
         <DetailPageSkeleton />
@@ -29,7 +31,11 @@ export default function TimelineEventDetailPage() {
   if (!ev) return <PageShell title="Not Found"><div className="text-muted-foreground">Event not found.</div></PageShell>;
 
   return (
-    <PageShell title={ev.event_type || "Event"} description={`Timeline Event · ${formatDate(ev.event_timestamp)}`}>
+    <PageShell
+      title={ev.event_type || "Event"}
+      description={`Timeline Event · ${formatDate(ev.event_timestamp)}`}
+      actions={showBackgroundQueryRefresh(event) ? <QueryRefreshIndicator /> : undefined}
+    >
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>

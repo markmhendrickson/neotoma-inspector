@@ -37,10 +37,11 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { ConfirmDialog } from "@/components/shared/confirm_dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EntityLink } from "@/components/shared/entity_link";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { AttributionCard } from "@/components/shared/attribution_card";
+import { TurnProvenanceCard } from "@/components/shared/turn_provenance_card";
 import {
   EntityOverviewCard,
   EntityOverviewStatsRow,
@@ -52,6 +53,8 @@ import { RelationshipPanel } from "@/components/shared/relationship_panel";
 import { CopyIdButton } from "@/components/shared/copy_id_button";
 import { FieldValue } from "@/components/shared/field_value";
 import { entityDisplayHeadline, humanizeEntityType, humanizeKey, shortId, truncate } from "@/lib/humanize";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { toast } from "sonner";
 import { Trash2, RotateCcw, GitMerge, FileText } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -146,7 +149,7 @@ export default function EntityDetailPage() {
   const relatedSourcesLoading =
     relatedSourceIds.length > 0 &&
     relatedSources.length === 0 &&
-    relatedSourceQueries.some((query) => query.isLoading);
+    relatedSourceQueries.some((query) => showInitialQuerySkeleton(query));
 
   function parseDraftValue(raw: string, previous: unknown): unknown {
     if (typeof previous === "string" || previous === null || previous === undefined) {
@@ -209,7 +212,7 @@ export default function EntityDetailPage() {
     );
   }
 
-  if (entity.isLoading) {
+  if (showInitialQuerySkeleton(entity)) {
     return (
       <PageShell title="Loading…">
         <DetailPageSkeleton />
@@ -256,6 +259,14 @@ export default function EntityDetailPage() {
     observations.data?.observations?.length ?? e.observation_count ?? 0;
   const relationshipCount = relationships.data?.relationships?.length ?? 0;
 
+  const entityPageRefreshing =
+    showBackgroundQueryRefresh(entity) ||
+    showBackgroundQueryRefresh(observations) ||
+    showBackgroundQueryRefresh(relationships) ||
+    showBackgroundQueryRefresh(markdownQuery) ||
+    showBackgroundQueryRefresh(graph) ||
+    showBackgroundQueryRefresh(schemaQuery);
+
   const createdAt = e.created_at ?? e.computed_at;
   const header = (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -279,7 +290,8 @@ export default function EntityDetailPage() {
       title={displayName}
       description={header}
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {entityPageRefreshing ? <QueryRefreshIndicator /> : null}
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -355,6 +367,20 @@ export default function EntityDetailPage() {
         </div>
       }
     >
+      {e.entity_type === "conversation" ? (
+        <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">
+          <Link
+            to={`/conversations/${encodeURIComponent(entityId)}`}
+            className="font-medium text-primary hover:underline"
+          >
+            View conversation transcript
+          </Link>
+          <span className="text-muted-foreground">
+            {" "}
+            — messages, related entities, and per-turn hook summaries.
+          </span>
+        </div>
+      ) : null}
       <EntityOverviewCard
         entity={e}
         schema={schema}
@@ -404,7 +430,7 @@ export default function EntityDetailPage() {
           <h2 className="text-lg font-semibold">
             Timeline ({observations.data?.observations?.length ?? "…"})
           </h2>
-          {observations.isLoading ? (
+          {showInitialQuerySkeleton(observations) ? (
             <ListSkeleton rows={5} />
           ) : (
             <Card>
@@ -422,7 +448,7 @@ export default function EntityDetailPage() {
           <h2 className="text-lg font-semibold">
             Relationships ({relationships.data?.relationships?.length ?? "…"})
           </h2>
-          {relationships.isLoading ? (
+          {showInitialQuerySkeleton(relationships) ? (
             <ListSkeleton rows={4} />
           ) : (
             <Card>
@@ -456,7 +482,7 @@ export default function EntityDetailPage() {
                 </p>
               </CardHeader>
               <CardContent>
-                {markdownQuery.isLoading ? (
+                {showInitialQuerySkeleton(markdownQuery) ? (
                   <InlineSkeleton className="h-24 w-full max-w-2xl" />
                 ) : markdownQuery.error ? (
                   <QueryErrorAlert title="Could not load markdown preview">
@@ -519,6 +545,22 @@ export default function EntityDetailPage() {
                   : "The most recent observation does not carry agent attribution."
               }
             />
+            {(() => {
+              const candidateKey =
+                typeof snapshot.turn_key === "string"
+                  ? snapshot.turn_key
+                  : (() => {
+                      const sid = snapshot.session_id;
+                      const tid = snapshot.turn_id;
+                      if (typeof sid === "string" && typeof tid === "string") {
+                        return `${sid}:${tid}`;
+                      }
+                      return null;
+                    })();
+              return candidateKey && e.entity_type !== "conversation_turn" ? (
+                <TurnProvenanceCard turnKey={candidateKey} />
+              ) : null;
+            })()}
             {e.provenance && Object.keys(e.provenance).length > 0 ? (
               <Card>
                 <CardHeader>
@@ -539,7 +581,7 @@ export default function EntityDetailPage() {
                 <CardTitle className="text-base">Graph neighborhood</CardTitle>
               </CardHeader>
               <CardContent>
-                {graph.isLoading ? (
+                {showInitialQuerySkeleton(graph) ? (
                   <GraphAreaSkeleton />
                 ) : graph.data ? (
                   <JsonViewer data={graph.data} defaultExpanded />

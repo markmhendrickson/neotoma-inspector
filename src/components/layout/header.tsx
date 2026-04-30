@@ -1,9 +1,10 @@
-import { useHealthCheck, useMe } from "@/hooks/use_infra";
+import { useHealthCheck, useMe, useServerInfo } from "@/hooks/use_infra";
 import {
   getDefaultApiUrl,
   getInspectorEnvironment,
   getApiUrl,
   isProxyDefaultEnabled,
+  resolveInspectorBadgeEnvironment,
 } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
 import { InlineSkeleton } from "@/components/shared/query_status";
@@ -20,9 +21,11 @@ function fileBasename(path: string): string {
 export function Header() {
   const health = useHealthCheck();
   const me = useMe();
+  const serverInfo = useServerInfo();
 
   const isHealthy = health.data?.ok === true;
-  const inspectorEnv = getInspectorEnvironment();
+  const viteInspectorEnv = getInspectorEnvironment();
+  const inspectorEnv = resolveInspectorBadgeEnvironment(serverInfo.data?.neotoma_env, viteInspectorEnv);
   const sqlitePath = me.data?.storage?.sqlite_db;
   const dataDir = me.data?.storage?.data_dir;
   const apiTargetRaw = isProxyDefaultEnabled() ? `proxy /api → ${getDefaultApiUrl()}` : getApiUrl();
@@ -86,7 +89,15 @@ export function Header() {
                 </>
               ) : null}
               <p className={`text-xs text-muted-foreground ${sqlitePath ? "mt-2" : ""}`}>Inspector build</p>
-              <p className="text-xs">VITE_NEOTOMA_ENV={inspectorEnv}</p>
+              <p className="text-xs">
+                Badge: API <span className="font-mono">neotoma_env</span>={" "}
+                {serverInfo.data?.neotoma_env ?? "…"}
+              </p>
+              <p className="text-xs">
+                Vite <span className="font-mono">VITE_NEOTOMA_ENV</span>={" "}
+                {String(import.meta.env.VITE_NEOTOMA_ENV ?? "(unset)")} → fallback badge{" "}
+                <span className="font-mono">{viteInspectorEnv}</span>
+              </p>
               <p className="mt-2 text-xs text-muted-foreground">API target</p>
               <p className="font-mono text-xs break-all">{apiTarget}</p>
               <p className="mt-2 text-xs text-muted-foreground">API health</p>

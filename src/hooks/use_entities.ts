@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isApiUrlConfigured } from "@/api/client";
 import { queryEntities, getEntityById, getEntityObservations, getEntityRelationships, getFieldProvenance } from "@/api/endpoints/entities";
 import type { EntitiesQueryParams } from "@/types/api";
@@ -7,7 +7,7 @@ export function useEntitiesQuery(params: EntitiesQueryParams) {
   return useQuery({
     queryKey: ["entities", params],
     queryFn: () => queryEntities(params),
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }

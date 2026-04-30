@@ -14,6 +14,25 @@ export function getInspectorEnvironment(): InspectorEnvironment {
   return "dev";
 }
 
+/**
+ * Prefer the API's resolved `NEOTOMA_ENV` (from `/server-info`) for UI that should
+ * reflect the running server. Falls back to {@link getInspectorEnvironment} (Vite
+ * `VITE_NEOTOMA_ENV`) when the server has not returned a value yet.
+ */
+export function resolveInspectorBadgeEnvironment(
+  apiNeotomaEnv: string | undefined,
+  viteInspectorEnv: InspectorEnvironment,
+): InspectorEnvironment {
+  if (apiNeotomaEnv == null || !String(apiNeotomaEnv).trim()) {
+    return viteInspectorEnv;
+  }
+  const n = String(apiNeotomaEnv).trim().toLowerCase();
+  if (n === "production" || n === "prod") {
+    return "prod";
+  }
+  return "dev";
+}
+
 function getScopedStorageKey(prefix: string): string {
   return `${prefix}_${getInspectorEnvironment()}`;
 }
@@ -44,6 +63,23 @@ export function isProxyDefaultEnabled(): boolean {
   return import.meta.env.DEV;
 }
 
+/**
+ * Read the optional `<meta name="neotoma-api-base">` tag injected by a
+ * Neotoma server when it serves this bundled SPA at `/inspector`. Lets the
+ * same Inspector dist work as both a same-origin Neotoma mount and a
+ * standalone GitHub Pages / sandbox deployment without rebuilding.
+ */
+function readSameOriginApiBaseFromMeta(): string | null {
+  if (typeof document === "undefined") return null;
+  try {
+    const meta = document.querySelector('meta[name="neotoma-api-base"]');
+    const content = meta?.getAttribute("content")?.trim();
+    return content || null;
+  } catch {
+    return null;
+  }
+}
+
 export function getDefaultApiUrl(): string {
   if (import.meta.env.VITE_NEOTOMA_API_URL) {
     return import.meta.env.VITE_NEOTOMA_API_URL;
@@ -51,6 +87,12 @@ export function getDefaultApiUrl(): string {
   // Production bundles (e.g. GitHub Pages) are served from a public origin; browsers
   // block or gate fetches to loopback. Localhost defaults are only for Vite dev / Node.
   if (import.meta.env.PROD) {
+    // When the SPA is served by a Neotoma server (bundled mount at /inspector),
+    // the server injects `<meta name="neotoma-api-base">` with the resolved
+    // origin so the SPA can default to same-origin requests without a baked
+    // VITE_NEOTOMA_API_URL.
+    const sameOriginBase = readSameOriginApiBaseFromMeta();
+    if (sameOriginBase) return sameOriginBase;
     return "";
   }
   return getInspectorEnvironment() === "prod" ? "http://localhost:3180" : "http://localhost:3080";
@@ -119,6 +161,31 @@ export function clearAuthToken() {
   localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 }
 
+function formatHttpErrorMessage(status: number, body: string): string {
+  const raw = body.trim();
+  if (!raw) return `HTTP ${status}`;
+
+  const cannotGet = raw.match(/Cannot GET (\S+)/);
+  if (cannotGet) {
+    const p = cannotGet[1];
+    return (
+      `HTTP ${status}: missing route ${p}. Rebuild the API (npm run build:server) and restart it, ` +
+      `or run npm run watch:server / tsx watch src/actions.ts. Confirm Settings → API URL targets this Neotoma instance.`
+    );
+  }
+
+  if (raw.startsWith("<!DOCTYPE") || raw.startsWith("<html")) {
+    return `HTTP ${status}: server returned HTML instead of JSON — wrong API base URL or a proxy/front-end on that port.`;
+  }
+
+  try {
+    const json = JSON.parse(raw) as { message?: string; error?: string };
+    return json.message || json.error || `HTTP ${status}`;
+  } catch {
+    return raw.length > 500 ? `${raw.slice(0, 500)}…` : raw;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const base = requireApiBase();
   const url = `${base}${path}`;
@@ -135,14 +202,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
     const body = await res.text();
-    let msg: string;
-    try {
-      const json = JSON.parse(body);
-      msg = json.message || json.error || `HTTP ${res.status}`;
-    } catch {
-      msg = body || `HTTP ${res.status}`;
-    }
-    throw new Error(msg);
+    throw new Error(formatHttpErrorMessage(res.status, body));
   }
   return res.json() as Promise<T>;
 }
@@ -209,6 +269,13 @@ export async function getBlob(
 export function post<T>(path: string, body?: unknown): Promise<T> {
   return request<T>(path, {
     method: "POST",
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+
+export function patch<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "PATCH",
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 }

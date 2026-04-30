@@ -11,7 +11,7 @@ interface PageShellProps {
 
 export function PageShell({ title, titleIcon, description, actions, children }: PageShellProps) {
   return (
-    <div className="flex-1 space-y-6 p-6">
+    <div className="min-w-0 flex-1 space-y-6 p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           {titleIcon ? (

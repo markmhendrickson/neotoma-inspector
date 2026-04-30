@@ -2,14 +2,16 @@ import { useState } from "react";
 import { useInterpretations } from "@/hooks/use_interpretations";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { SourceLink } from "@/components/shared/source_link";
 import { AgentBadge } from "@/components/shared/agent_badge";
 import { useAgentAttributionFilter } from "@/components/shared/agent_filter";
-import { Pagination } from "@/components/shared/pagination";
+import { OffsetPagination as Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Interpretation } from "@/types/api";
 
@@ -53,13 +55,17 @@ export default function InterpretationsPage() {
   const displayed = filterRows(items);
 
   return (
-    <PageShell title="Interpretations" description="AI interpretation runs on sources">
+    <PageShell
+      title="Interpretations"
+      description="AI interpretation runs on sources"
+      actions={showBackgroundQueryRefresh(interps) ? <QueryRefreshIndicator /> : undefined}
+    >
       <div className="flex flex-wrap items-end gap-3">
         <Input placeholder="Filter by source ID…" value={sourceId} onChange={(e) => { setSourceId(e.target.value); setOffset(0); }} className="w-[250px]" />
         <AgentFilterControl />
       </div>
 
-      {interps.isLoading ? (
+      {showInitialQuerySkeleton(interps) ? (
         <DataTableSkeleton rows={10} cols={6} />
       ) : interps.error ? (
         <QueryErrorAlert title="Could not load interpretations">{interps.error.message}</QueryErrorAlert>

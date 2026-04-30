@@ -4,6 +4,7 @@ import {
   getInspectorEnvironment,
   getSavedApiUrl,
   isProxyDefaultEnabled,
+  resolveInspectorBadgeEnvironment,
   setApiUrl,
   clearApiUrl,
   getAuthToken,
@@ -21,12 +22,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { AttributionSummary } from "@/components/shared/attribution_summary";
+import { SessionAttestationCard } from "@/components/shared/session_attestation_card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatInspectorUserId } from "@/lib/constants";
 import { areDestructiveActionsHidden, isApiUrlOverrideDisabled } from "@/lib/sandbox";
+import { readStoredSandboxSession } from "@/lib/sandbox_session";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Circle, RefreshCw } from "lucide-react";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 
 const LOCAL_PROXY_PLACEHOLDER = "/api";
 
@@ -38,11 +43,17 @@ export default function SettingsPage() {
   const savedApiUrl = getSavedApiUrl();
   const [apiUrl, setApiUrlLocal] = useState(savedApiUrl || "");
   const [token, setTokenLocal] = useState(getAuthToken() || "");
+  const activeSandboxSession = readStoredSandboxSession();
+  const [showAdvanced, setShowAdvanced] = useState(activeSandboxSession === null);
 
   const health = useHealthCheck();
   const serverInfo = useServerInfo();
   const me = useMe();
   const snapshotHealth = useHealthCheckSnapshots();
+  const connectionEnvBadge = resolveInspectorBadgeEnvironment(
+    serverInfo.data?.neotoma_env,
+    inspectorEnvironment,
+  );
 
   function handleSaveConnection() {
     if (apiUrl.trim()) {
@@ -61,19 +72,32 @@ export default function SettingsPage() {
 
   return (
     <PageShell title="Settings" description="Configure API connection and view server details">
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Server Info</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {serverInfo.isLoading ? (
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+        <Card className="min-w-0">
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Server Info</CardTitle>
+              {showBackgroundQueryRefresh(serverInfo) ? <QueryRefreshIndicator /> : null}
+            </div>
+          </CardHeader>
+          <CardContent className="min-w-0 space-y-2 text-sm">
+            {showInitialQuerySkeleton(serverInfo) ? (
               <div className="space-y-2">
                 <InlineSkeleton className="h-4 w-full max-w-xs" />
                 <InlineSkeleton className="h-4 w-full max-w-sm" />
               </div>
             ) : serverInfo.data ? (
               <>
-                <div className="flex justify-between"><span className="text-muted-foreground">HTTP Port</span><span>{serverInfo.data.httpPort}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">API Base</span><span className="font-mono text-xs">{serverInfo.data.apiBase || "—"}</span></div>
+                <div className="flex min-w-0 justify-between gap-2">
+                  <span className="shrink-0 text-muted-foreground">HTTP Port</span>
+                  <span className="min-w-0 text-right">{serverInfo.data.httpPort}</span>
+                </div>
+                <div className="flex min-w-0 justify-between gap-2">
+                  <span className="shrink-0 text-muted-foreground">API Base</span>
+                  <span className="min-w-0 break-all text-right font-mono text-xs">
+                    {serverInfo.data.apiBase || "—"}
+                  </span>
+                </div>
                 <div className="space-y-1">
                   <span className="text-muted-foreground">MCP URL</span>
                   <p className="font-mono text-xs break-all">{serverInfo.data.mcpUrl || "—"}</p>
@@ -85,67 +109,107 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader><CardTitle className="text-base">API Connection</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>API Base URL Override</Label>
-              <Input
-                value={apiUrl}
-                onChange={(e) => setApiUrlLocal(e.target.value)}
-                placeholder={
-                  proxyDefaultEnabled
-                    ? LOCAL_PROXY_PLACEHOLDER
-                    : defaultApiUrl || "https://your-neotoma-api.example.com"
-                }
-                disabled={isApiUrlOverrideDisabled()}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {isApiUrlOverrideDisabled()
-                  ? `Locked to the sandbox host (${defaultApiUrl}). Install Neotoma locally to change the API URL.`
-                  : proxyDefaultEnabled
-                    ? `Local dev default for ${inspectorEnvironment}: /api -> ${defaultApiUrl}`
-                    : `Default for the current Neotoma environment (${inspectorEnvironment}): ${defaultApiUrl}`}
-              </p>
-            </div>
-            <div>
-              <Label>Bearer Token</Label>
-              <Input
-                type="password"
-                value={token}
-                onChange={(e) => setTokenLocal(e.target.value)}
-                placeholder="Optional auth token"
-                disabled={isApiUrlOverrideDisabled()}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <Button onClick={handleSaveConnection} disabled={isApiUrlOverrideDisabled()}>
-                Save & Reconnect
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setApiUrlLocal("");
-                  clearApiUrl();
-                  qc.invalidateQueries();
-                  toast.success("Reverted to default connection");
-                }}
-                disabled={isApiUrlOverrideDisabled() || (!savedApiUrl && !apiUrl.trim())}
-              >
-                Use Default
-              </Button>
-              <div className="flex items-center gap-2 text-sm">
-                <Circle className={`h-2.5 w-2.5 fill-current ${health.data?.ok ? "text-green-500" : "text-red-500"}`} />
-                {health.data?.ok ? "Connected" : "Disconnected"}
+          <CardContent className="min-w-0 space-y-4">
+            {activeSandboxSession ? (
+              <div className="min-w-0 break-words rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                A redeemed sandbox session is driving this connection
+                (<span className="font-mono">{activeSandboxSession.apiBase}</span>, pack{" "}
+                <span className="font-mono">{activeSandboxSession.packId || "unknown"}</span>). The
+                manual overrides below are collapsed by default — expand them only if you need to
+                point the Inspector at a different Neotoma instance.
               </div>
-            </div>
+            ) : null}
+            {activeSandboxSession && !showAdvanced ? (
+              <div className="flex min-w-0 flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-fit max-w-full"
+                  onClick={() => setShowAdvanced(true)}
+                >
+                  Show advanced connection settings
+                </Button>
+                <div className="flex items-center gap-2 text-sm">
+                  <Circle className={`h-2.5 w-2.5 shrink-0 fill-current ${health.data?.ok ? "text-green-500" : "text-red-500"}`} />
+                  <span>{health.data?.ok ? "Connected" : "Disconnected"}</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="min-w-0">
+                  <Label>API Base URL Override</Label>
+                  <Input
+                    className="min-w-0 max-w-full"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrlLocal(e.target.value)}
+                    placeholder={
+                      proxyDefaultEnabled
+                        ? LOCAL_PROXY_PLACEHOLDER
+                        : defaultApiUrl || "https://your-neotoma-api.example.com"
+                    }
+                    disabled={isApiUrlOverrideDisabled()}
+                  />
+                  <p className="mt-2 min-w-0 break-words text-xs text-muted-foreground">
+                    {proxyDefaultEnabled
+                      ? `Local dev default for ${connectionEnvBadge}: /api -> ${defaultApiUrl}`
+                      : `Default for the current Neotoma environment (${connectionEnvBadge}): ${defaultApiUrl}`}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <Label>Bearer Token</Label>
+                  <Input
+                    className="min-w-0 max-w-full"
+                    type="password"
+                    value={token}
+                    onChange={(e) => setTokenLocal(e.target.value)}
+                    placeholder="Optional auth token"
+                    disabled={isApiUrlOverrideDisabled()}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <div className="flex min-w-0 flex-wrap gap-2">
+                    <Button
+                      className="w-fit max-w-full shrink-0"
+                      onClick={handleSaveConnection}
+                      disabled={isApiUrlOverrideDisabled()}
+                    >
+                      Save & Reconnect
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-fit max-w-full shrink-0"
+                      onClick={() => {
+                        setApiUrlLocal("");
+                        clearApiUrl();
+                        qc.invalidateQueries();
+                        toast.success("Reverted to default connection");
+                      }}
+                      disabled={isApiUrlOverrideDisabled() || (!savedApiUrl && !apiUrl.trim())}
+                    >
+                      Use Default
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Circle className={`h-2.5 w-2.5 shrink-0 fill-current ${health.data?.ok ? "text-green-500" : "text-red-500"}`} />
+                    <span>{health.data?.ok ? "Connected" : "Disconnected"}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base">Current User</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {me.isLoading ? (
+        <Card className="min-w-0">
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Current User</CardTitle>
+              {showBackgroundQueryRefresh(me) ? <QueryRefreshIndicator /> : null}
+            </div>
+          </CardHeader>
+          <CardContent className="min-w-0 space-y-2 text-sm">
+            {showInitialQuerySkeleton(me) ? (
               <div className="space-y-2">
                 <InlineSkeleton className="h-4 w-full max-w-xs" />
                 <InlineSkeleton className="h-4 w-full max-w-md" />
@@ -188,9 +252,9 @@ export default function SettingsPage() {
         </Card>
 
         {areDestructiveActionsHidden() ? null : (
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
-            <CardTitle className="text-base flex items-center justify-between">
+            <CardTitle className="text-base flex min-w-0 flex-wrap items-center justify-between gap-2">
               Snapshot Health
               <Button
                 variant="outline"
@@ -235,7 +299,8 @@ export default function SettingsPage() {
 
       <Separator className="my-6" />
 
-      <div>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+        <SessionAttestationCard />
         <AttributionSummary />
       </div>
     </PageShell>

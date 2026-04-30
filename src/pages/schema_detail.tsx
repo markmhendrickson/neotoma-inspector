@@ -4,6 +4,8 @@ import { useSchemaByType, useSchemaRecommendations, useSchemaCandidates } from "
 import { useUpdateSchema } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
 import { DetailPageSkeleton, InlineSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
+import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +31,7 @@ export default function SchemaDetailPage() {
 
   const s = schema.data;
 
-  if (schema.isLoading)
+  if (showInitialQuerySkeleton(schema))
     return (
       <PageShell title="Loading…">
         <DetailPageSkeleton />
@@ -45,11 +47,18 @@ export default function SchemaDetailPage() {
 
   const fields = s.schema_definition?.fields ?? s.field_summary ?? {};
 
+  const schemaDetailRefreshing =
+    showBackgroundQueryRefresh(schema) ||
+    showBackgroundQueryRefresh(recommendations) ||
+    showBackgroundQueryRefresh(candidates);
+
   return (
     <PageShell
       title={s.entity_type}
       description={`Schema v${s.schema_version || "?"}`}
       actions={
+        <div className="flex flex-wrap items-center gap-2">
+          {schemaDetailRefreshing ? <QueryRefreshIndicator /> : null}
         <Dialog>
           <DialogTrigger asChild><Button size="sm"><Plus className="h-3 w-3 mr-1" /> Add Field</Button></DialogTrigger>
           <DialogContent>
@@ -77,6 +86,7 @@ export default function SchemaDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       }
     >
       <div className="flex items-center gap-2 mb-4">
@@ -136,7 +146,7 @@ export default function SchemaDetailPage() {
               <Button variant="outline" size="sm" onClick={() => candidates.refetch()}>Analyze</Button>
             </CardHeader>
             <CardContent>
-              {candidates.isFetching ? (
+              {showInitialQuerySkeleton(candidates) ? (
                 <InlineSkeleton className="h-24 w-full max-w-lg" />
               ) : candidates.data ? (
                 <JsonViewer data={candidates.data} defaultExpanded />
@@ -153,7 +163,7 @@ export default function SchemaDetailPage() {
               <CardTitle className="text-base flex items-center gap-2"><Lightbulb className="h-4 w-4" /> Recommendations</CardTitle>
             </CardHeader>
             <CardContent>
-              {recommendations.isLoading ? (
+              {showInitialQuerySkeleton(recommendations) ? (
                 <InlineSkeleton className="h-24 w-full max-w-lg" />
               ) : recommendations.data ? (
                 <JsonViewer data={recommendations.data} defaultExpanded />

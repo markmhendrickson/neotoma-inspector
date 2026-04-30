@@ -19,6 +19,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type {
+  AgentAttestationOutcome,
   AgentAttribution,
   AgentAttributionTier,
 } from "@/types/api";
@@ -45,6 +46,11 @@ export function extractAgentAttribution(
     typeof p.attribution_tier === "string"
       ? (p.attribution_tier as AgentAttributionTier)
       : undefined;
+  const operatorSource =
+    p.operator_allowlist_source === "issuer" ||
+    p.operator_allowlist_source === "issuer_subject"
+      ? p.operator_allowlist_source
+      : null;
   return {
     agent_public_key:
       typeof p.agent_public_key === "string" ? p.agent_public_key : undefined,
@@ -63,6 +69,41 @@ export function extractAgentAttribution(
     attribution_tier: tier,
     attributed_at:
       typeof p.attributed_at === "string" ? p.attributed_at : undefined,
+    attestation: extractAttestationOutcome(p.attestation),
+    operator_allowlist_source: operatorSource,
+  };
+}
+
+/**
+ * Read an attestation outcome blob off provenance defensively. Returns
+ * `null` when the field is absent or malformed; we never throw because
+ * provenance is third-party data and the badge needs to keep rendering.
+ */
+function extractAttestationOutcome(
+  raw: unknown
+): AgentAttestationOutcome | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.verified !== "boolean") return null;
+  return {
+    verified: r.verified,
+    format:
+      r.format === "apple-secure-enclave" ||
+      r.format === "webauthn-packed" ||
+      r.format === "tpm2"
+        ? r.format
+        : null,
+    reason: typeof r.reason === "string" ? (r.reason as never) : null,
+    aaguid: typeof r.aaguid === "string" ? r.aaguid : null,
+    key_binding_matches_cnf_jwk:
+      typeof r.key_binding_matches_cnf_jwk === "boolean"
+        ? r.key_binding_matches_cnf_jwk
+        : null,
+    challenge_digest:
+      typeof r.challenge_digest === "string" ? r.challenge_digest : null,
+    chain: Array.isArray(r.chain)
+      ? (r.chain as AgentAttestationOutcome["chain"])
+      : null,
   };
 }
 
@@ -123,7 +164,14 @@ const TIER_VISUAL: Record<
     className:
       "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-700",
     description:
-      "AAuth-verified with a hardware-backed key (Secure Enclave / YubiKey).",
+      "AAuth-verified with a cryptographically attested hardware-backed key (Secure Enclave / TPM / YubiKey).",
+  },
+  operator_attested: {
+    label: "Operator-attested",
+    className:
+      "bg-teal-100 text-teal-900 ring-1 ring-teal-300 dark:bg-teal-900/30 dark:text-teal-200 dark:ring-teal-700",
+    description:
+      "AAuth-verified, and this issuer (or issuer:subject) is in the operator-managed allowlist.",
   },
   software: {
     label: "Software",
@@ -176,6 +224,7 @@ export function AgentBadge({
   const visual = TIER_VISUAL[tier];
   const label = getAttributionLabel(attribution);
 
+  const att = attribution?.attestation ?? null;
   const tooltipRows: Array<[string, string | undefined]> = [
     ["Tier", visual.label],
     ["Agent", label],
@@ -188,6 +237,32 @@ export function AgentBadge({
     ["Version", attribution?.client_version],
     ["Connection", attribution?.connection_id],
     ["Stamped at", attribution?.attributed_at],
+    [
+      "Operator allowlist",
+      attribution?.operator_allowlist_source === "issuer_subject"
+        ? "iss + sub"
+        : attribution?.operator_allowlist_source === "issuer"
+          ? "iss"
+          : undefined,
+    ],
+    ["Attestation", att ? (att.verified ? "verified" : "failed") : undefined],
+    ["Attestation format", att?.format ?? undefined],
+    ["AAGUID / model", att?.aaguid ?? undefined],
+    [
+      "Key binding",
+      att?.key_binding_matches_cnf_jwk == null
+        ? undefined
+        : att.key_binding_matches_cnf_jwk
+          ? "matches cnf.jwk"
+          : "mismatch",
+    ],
+    [
+      "Challenge",
+      att?.challenge_digest
+        ? `${att.challenge_digest.slice(0, 16)}…`
+        : undefined,
+    ],
+    ["Failure reason", att?.reason ?? undefined],
   ];
 
   const trigger = (
@@ -236,11 +311,19 @@ export function AgentBadge({
  * Short, decorative glyph for the tier. Uses text characters rather than
  * icon fonts because the badge shows up in narrow table columns and we
  * want it zero-dependency.
+ *
+ * Exported (test-only) so the deterministic tier → glyph mapping can be
+ * pinned in a unit test without spinning up the DOM.
  */
-function tierIcon(tier: AgentAttributionTier): string {
+export function tierIcon(tier: AgentAttributionTier): string {
   switch (tier) {
     case "hardware":
       return "◆";
+    case "operator_attested":
+      // Half-filled diamond — visually between hardware (filled) and
+      // software (outlined) so a quick scan reads the trust ladder
+      // without needing to read the label.
+      return "◈";
     case "software":
       return "◇";
     case "unverified_client":

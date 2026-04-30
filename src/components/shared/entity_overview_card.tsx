@@ -1,14 +1,11 @@
+import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { TypeBadge } from "@/components/shared/type_badge";
 import { EntityLink } from "@/components/shared/entity_link";
 import { FieldValue } from "@/components/shared/field_value";
-import {
-  humanizeKey,
-  relativeTime,
-  absoluteDateTime,
-  entityDisplayHeadline,
-} from "@/lib/humanize";
+import { LiveRelativeTime } from "@/components/shared/live_relative_time";
+import { humanizeKey, absoluteDateTime, entityDisplayHeadline } from "@/lib/humanize";
 import { pickPrimaryFields } from "@/lib/snapshot_ordering";
 import type { EntitySnapshot, EntitySchema } from "@/types/api";
 
@@ -103,35 +100,45 @@ export function EntityOverviewCard({
 
   const fieldLabel = (k: string): string => humanizeKey(k);
 
+  const hasHeaderContent = showHeroTitle || showTypeBadge || mergedInto != null;
+
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            {showHeroTitle ? (
-              <h2 className="text-xl font-semibold leading-tight break-words">
-                {displayName}
-              </h2>
-            ) : null}
-            {showTypeBadge || mergedInto ? (
-              <div
-                className={
-                  showHeroTitle
-                    ? "mt-1 flex items-center flex-wrap gap-2 text-sm text-muted-foreground"
-                    : "flex items-center flex-wrap gap-2 text-sm text-muted-foreground"
-                }
-              >
-                {showTypeBadge ? (
-                  <TypeBadge type={entity.entity_type} label={schemaLabel} humanize />
-                ) : null}
-                {showTypeBadge && mergedInto ? <span>·</span> : null}
-                {mergedInto ? <span>{mergedInto}</span> : null}
-              </div>
-            ) : null}
+      {hasHeaderContent ? (
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {showHeroTitle ? (
+                <h2 className="text-xl font-semibold leading-tight break-words">
+                  {displayName}
+                </h2>
+              ) : null}
+              {showTypeBadge || mergedInto ? (
+                <div
+                  className={
+                    showHeroTitle
+                      ? "mt-1 flex items-center flex-wrap gap-2 text-sm text-muted-foreground"
+                      : "flex items-center flex-wrap gap-2 text-sm text-muted-foreground"
+                  }
+                >
+                  {showTypeBadge ? (
+                    <TypeBadge type={entity.entity_type} label={schemaLabel} humanize />
+                  ) : null}
+                  {showTypeBadge && mergedInto ? <span>·</span> : null}
+                  {mergedInto ? <span>{mergedInto}</span> : null}
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className={cn("space-y-4", omitPrimaryFields && children ? "pt-6" : undefined)}>
+        </CardHeader>
+      ) : null}
+      <CardContent
+        className={cn(
+          "space-y-4",
+          !hasHeaderContent ? "pt-6" : undefined,
+          omitPrimaryFields && children ? "pt-6" : undefined,
+        )}
+      >
         {!omitPrimaryFields ? (
           primaryKeys.length > 0 ? (
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -184,13 +191,19 @@ export function EntityOverviewStatsRow({
       <Stat label="Relationships" value={numberLabel(relationshipCount)} />
       <Stat
         label="Last updated"
-        value={lastUpdated ? relativeTime(lastUpdated) : "—"}
+        value={
+          lastUpdated ? (
+            <LiveRelativeTime iso={lastUpdated} title={false} className="font-medium" />
+          ) : (
+            "—"
+          )
+        }
         title={lastUpdated ? absoluteDateTime(lastUpdated) : undefined}
       />
       {createdAt ? (
         <Stat
           label="Created"
-          value={relativeTime(createdAt)}
+          value={<LiveRelativeTime iso={createdAt} title={false} className="font-medium" />}
           title={absoluteDateTime(createdAt)}
         />
       ) : null}
@@ -204,13 +217,13 @@ function Stat({
   title,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   title?: string;
 }) {
   return (
     <div className="flex items-baseline gap-2" title={title}>
       <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+      <span className={typeof value === "string" ? "font-medium" : undefined}>{value}</span>
     </div>
   );
 }

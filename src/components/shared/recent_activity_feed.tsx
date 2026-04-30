@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { LiveRelativeTime } from "@/components/shared/live_relative_time";
 import { EntityLink } from "@/components/shared/entity_link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,14 +42,13 @@ export function RecentActivityFeed({
                 compact ? "px-1 py-1" : "px-3 py-2"
               )}
             >
-              <span
+              <LiveRelativeTime
+                iso={activityTs}
                 className={cn(
-                  "shrink-0 text-right font-mono text-muted-foreground tabular-nums",
+                  "inline-block shrink-0 text-right font-mono text-muted-foreground tabular-nums",
                   compact ? "w-12 text-xs" : "w-16 text-sm"
                 )}
-              >
-                {relativeTime(activityTs)}
-              </span>
+              />
               <div className="min-w-0 flex-1">
                 <Link
                   to={`/timeline/${encodeURIComponent(ev.id)}`}
@@ -172,25 +172,6 @@ function shortDate(ts: string | undefined | null): string | null {
     });
   } catch {
     return null;
-  }
-}
-
-function relativeTime(ts: string | undefined | null): string {
-  if (!ts) return "";
-  try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return "";
-    const diffMs = Date.now() - d.getTime();
-    const mins = Math.floor(diffMs / 60000);
-    const hrs = Math.floor(mins / 60);
-    const days = Math.floor(hrs / 24);
-    if (mins < 1) return "now";
-    if (mins < 60) return `${mins}m`;
-    if (hrs < 24) return `${hrs}h`;
-    if (days < 30) return `${days}d`;
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  } catch {
-    return "";
   }
 }
 

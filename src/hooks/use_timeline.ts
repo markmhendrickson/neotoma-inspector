@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isApiUrlConfigured } from "@/api/client";
 import { listTimeline, getTimelineById } from "@/api/endpoints/timeline";
 
@@ -13,7 +13,7 @@ export function useTimeline(params?: {
   return useQuery({
     queryKey: ["timeline", params],
     queryFn: () => listTimeline(params),
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }

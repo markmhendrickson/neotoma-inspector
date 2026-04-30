@@ -1,5 +1,5 @@
 import { get } from "../client";
-import type { RecentConversationsResponse } from "@/types/api";
+import type { RecentConversationItem, RecentConversationsResponse } from "@/types/api";
 
 export function listRecentConversations(params?: {
   limit?: number;
@@ -11,5 +11,11 @@ export function listRecentConversations(params?: {
   return get<RecentConversationsResponse>(
     "/recent_conversations",
     params as Record<string, string | number | undefined>,
+  );
+}
+
+export function getRecentConversation(conversationId: string) {
+  return get<RecentConversationItem>(
+    `/recent_conversations/${encodeURIComponent(conversationId)}`,
   );
 }

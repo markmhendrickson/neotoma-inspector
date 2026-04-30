@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isApiUrlConfigured } from "@/api/client";
 import { healthCheck, getServerInfo, getMe, healthCheckSnapshots } from "@/api/endpoints/infra";
 import { getSession } from "@/api/endpoints/session";
@@ -16,6 +16,7 @@ export function useServerInfo() {
   return useQuery({
     queryKey: ["server-info"],
     queryFn: getServerInfo,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }
@@ -25,6 +26,7 @@ export function useMe() {
     queryKey: ["me"],
     queryFn: getMe,
     retry: false,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }
@@ -35,6 +37,7 @@ export function useSession() {
     queryFn: getSession,
     retry: false,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
     enabled: isApiUrlConfigured(),
   });
 }

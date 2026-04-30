@@ -10,6 +10,7 @@ import { orderedSnapshotKeys } from "@/lib/snapshot_ordering";
 import type { EntitySchema, Observation, Source } from "@/types/api";
 import { Info } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
+import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 
 interface SnapshotFieldListProps {
   entityId: string;
@@ -109,10 +110,15 @@ function FieldRow({
         </div>
         {open ? (
           <div className="rounded border border-dashed bg-muted/30 p-2">
-            {provenance.isLoading ? (
+            {showInitialQuerySkeleton(provenance) ? (
               <InlineSkeleton className="h-3 w-40" />
             ) : provenance.data ? (
-              <FieldProvenanceSummary data={provenance.data} developerView={developerView} />
+              <div className="space-y-1">
+                {showBackgroundQueryRefresh(provenance) ? (
+                  <p className="text-[11px] text-muted-foreground">Updating provenance…</p>
+                ) : null}
+                <FieldProvenanceSummary data={provenance.data} developerView={developerView} />
+              </div>
             ) : (
               <span className="text-xs text-muted-foreground">No provenance data.</span>
             )}

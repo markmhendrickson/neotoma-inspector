@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { EntityLink } from "@/components/shared/entity_link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { relativeTime, shortId, truncate } from "@/lib/humanize";
+import { LiveRelativeTime } from "@/components/shared/live_relative_time";
+import { shortId, truncate } from "@/lib/humanize";
 import type { RecentConversationItem } from "@/types/api";
 
 interface RecentConversationsFeedProps {
@@ -41,20 +41,21 @@ export function RecentConversationsFeed({
                 compact ? "px-1 py-1" : "px-3 py-2"
               )}
             >
-              <span
+              <LiveRelativeTime
+                iso={c.activity_at}
                 className={cn(
-                  "shrink-0 text-right font-mono text-muted-foreground tabular-nums",
+                  "inline-block shrink-0 text-right font-mono text-muted-foreground tabular-nums",
                   compact ? "w-12 text-xs" : "w-16 text-sm"
                 )}
-              >
-                {relativeTime(c.activity_at)}
-              </span>
+              />
               <div className="min-w-0 flex-1">
-                <EntityLink
-                  id={c.conversation_id}
-                  name={label}
-                  className={cn("font-medium hover:underline", compact ? "text-xs" : "text-sm")}
-                />
+                <Link
+                  to={`/conversations/${encodeURIComponent(c.conversation_id)}`}
+                  className={cn("font-medium text-primary hover:underline", compact ? "text-xs" : "text-sm")}
+                  title={c.conversation_id}
+                >
+                  {label}
+                </Link>
                 <div
                   className={cn(
                     "mt-0.5 text-muted-foreground",

@@ -7,10 +7,11 @@ import { Search as SearchIcon } from "lucide-react";
 import { queryEntities } from "@/api/endpoints/entities";
 import { listSources } from "@/api/endpoints/sources";
 import { PageShell } from "@/components/layout/page_shell";
-import { DataTable } from "@/components/shared/data_table";
+import { DataTable } from "@/components/ui/data-table";
 import { DataTableSkeleton, ListSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { TypeBadge } from "@/components/shared/type_badge";
 import { Input } from "@/components/ui/input";
+import { showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate, truncateId } from "@/lib/utils";
 import { sourceDetail, sourceTitle } from "@/lib/source_display";
 import type { EntitySnapshot, Source } from "@/types/api";
@@ -158,7 +159,7 @@ export default function SearchPage() {
                   : "Search matches from entity snapshots and canonical names."}
               </p>
             </div>
-            {entitiesQuery.isPending ? (
+            {showInitialQuerySkeleton(entitiesQuery) ? (
               <DataTableSkeleton rows={8} cols={4} />
             ) : entitiesQuery.error ? (
               <QueryErrorAlert title="Could not load entity matches">
@@ -180,7 +181,7 @@ export default function SearchPage() {
                 Matching raw files, uploads, and stored source material.
               </p>
             </div>
-            {sourcesQuery.isPending ? (
+            {showInitialQuerySkeleton(sourcesQuery) ? (
               <ListSkeleton rows={6} />
             ) : sourcesQuery.error ? (
               <QueryErrorAlert title="Could not load source matches">

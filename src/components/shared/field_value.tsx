@@ -2,14 +2,8 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { JsonViewer } from "@/components/shared/json_viewer";
-import {
-  absoluteDateTime,
-  humanizeKey,
-  inferValueKind,
-  relativeTime,
-  truncate,
-  type ValueKind,
-} from "@/lib/humanize";
+import { LiveRelativeTime } from "@/components/shared/live_relative_time";
+import { absoluteDateTime, humanizeKey, inferValueKind, truncate, type ValueKind } from "@/lib/humanize";
 
 interface FieldValueProps {
   value: unknown;
@@ -48,11 +42,15 @@ function renderKind(kind: ValueKind, value: unknown, expanded?: boolean) {
       return <span className="tabular-nums">{(value as number).toLocaleString()}</span>;
     case "date": {
       const abs = absoluteDateTime(value as string);
-      const rel = relativeTime(value as string);
+      const iso = value as string;
       return (
         <span title={abs}>
           {abs || String(value)}
-          {rel ? <span className="ml-2 text-xs text-muted-foreground">({rel})</span> : null}
+          {iso ? (
+            <span className="ml-2 text-xs text-muted-foreground">
+              (<LiveRelativeTime iso={iso} title={false} />)
+            </span>
+          ) : null}
         </span>
       );
     }
