@@ -30,10 +30,7 @@ export interface ExternalActorData {
   provenance_warning?: string;
 }
 
-const VERIFIED_VIA_CONFIG: Record<
-  string,
-  { label: string; color: string; description: string }
-> = {
+const VERIFIED_VIA_CONFIG = {
   claim: {
     label: "claim",
     color: "bg-muted text-muted-foreground",
@@ -54,10 +51,14 @@ const VERIFIED_VIA_CONFIG: Record<
     color: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
     description: "Verified GitHub webhook delivery.",
   },
-};
+} as const;
+
+type VerifiedViaKey = keyof typeof VERIFIED_VIA_CONFIG;
 
 function getVerifiedViaConfig(via: string | undefined) {
-  return VERIFIED_VIA_CONFIG[via ?? "claim"] ?? VERIFIED_VIA_CONFIG.claim;
+  const key: VerifiedViaKey =
+    via !== undefined && via in VERIFIED_VIA_CONFIG ? (via as VerifiedViaKey) : "claim";
+  return VERIFIED_VIA_CONFIG[key];
 }
 
 export function ExternalActorBadge({
