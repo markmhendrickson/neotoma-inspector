@@ -3,6 +3,7 @@ import { isApiUrlConfigured } from "@/api/client";
 import {
   adminFeedbackPreflight,
   findFeedbackByCommit,
+  listAllFeedback,
   listPendingFeedback,
   updateFeedbackStatus,
   type UpdateFeedbackStatusRequest,
@@ -37,6 +38,16 @@ export function useFindFeedbackByCommit(sha: string | null) {
     queryKey: ["admin-feedback-by-commit", sha],
     queryFn: () => findFeedbackByCommit(sha!),
     enabled: isApiUrlConfigured() && !!sha && sha.trim().length > 0,
+  });
+}
+
+export function useAllFeedback(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["admin-feedback-all"],
+    queryFn: listAllFeedback,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    enabled: isApiUrlConfigured() && options?.enabled !== false,
   });
 }
 

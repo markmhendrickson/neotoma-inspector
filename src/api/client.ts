@@ -199,7 +199,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, { ...init, headers });
+  const res = await fetch(url, { ...init, headers, credentials: "include" });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(formatHttpErrorMessage(res.status, body));
@@ -242,7 +242,7 @@ export async function getText(
   const token = getAuthToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, credentials: "include" });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || `HTTP ${res.status}`);
@@ -258,7 +258,7 @@ export async function getBlob(
   const token = getAuthToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, credentials: "include" });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || `HTTP ${res.status}`);

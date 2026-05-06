@@ -19,6 +19,7 @@ const TimelinePage = lazy(() => import("@/pages/timeline"));
 const TimelineEventDetailPage = lazy(() => import("@/pages/timeline_event_detail"));
 const RecentActivityPage = lazy(() => import("@/pages/recent_activity"));
 const FeedbackPage = lazy(() => import("@/pages/feedback"));
+const FeedbackAdminUnlockPage = lazy(() => import("@/pages/feedback_admin_unlock"));
 const RecentConversationsPage = lazy(() => import("@/pages/recent_conversations"));
 const ConversationDetailPage = lazy(() => import("@/pages/conversation_detail"));
 const TurnsPage = lazy(() => import("@/pages/turns"));
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/schemas/:entityType" element={<SchemaDetailPage />} />
           <Route path="/activity" element={<RecentActivityPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/feedback/admin-unlock" element={<FeedbackAdminUnlockPage />} />
           <Route path="/conversations/:conversationId" element={<ConversationDetailPage />} />
           <Route path="/conversations" element={<RecentConversationsPage />} />
           <Route path="/turns" element={<TurnsPage />} />

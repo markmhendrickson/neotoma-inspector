@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
@@ -19,6 +19,28 @@ function normalizeBasePath(value: string | undefined): string {
   return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
 }
 
+/** Redirect e.g. `/inspector` → `/inspector/` so Vite's non-root base does not show the HTML hint page. */
+function basePathTrailingSlashRedirectPlugin(base: string): Plugin | null {
+  if (base === "/" || !base.endsWith("/")) return null;
+  const withoutSlash = base.replace(/\/$/, "");
+  return {
+    name: "neotoma-inspector-base-trailing-slash-redirect",
+    enforce: "pre",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET" && req.method !== "HEAD") return next();
+        const url = req.url ?? "";
+        const pathOnly = url.split("?")[0] ?? "";
+        if (pathOnly !== withoutSlash) return next();
+        const qs = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+        res.statusCode = 308;
+        res.setHeader("Location", `${base.replace(/\/$/, "")}/${qs}`);
+        res.end();
+      });
+    },
+  };
+}
+
 export default defineConfig(() => {
   const apiUrl = getDefaultApiUrl();
   // Default `/inspector/` matches how Neotoma mounts the bundled SPA. Without
@@ -36,10 +58,18 @@ export default defineConfig(() => {
     path.relative(__dirname, buildOutDir).startsWith("..") ||
     path.relative(__dirname, buildOutDir).includes("..");
 
+  const devPortRaw =
+    process.env.VITE_INSPECTOR_DEV_PORT?.trim() ||
+    process.env.INSPECTOR_DEV_PORT?.trim() ||
+    "5175";
+  const devPort = Number.parseInt(devPortRaw, 10);
+  const inspectorDevPort = Number.isFinite(devPort) && devPort > 0 ? devPort : 5175;
+  const slashRedirect = basePathTrailingSlashRedirectPlugin(base);
+
   return {
     base,
     clearScreen: false,
-    plugins: [react()],
+    plugins: [...(slashRedirect ? [slashRedirect] : []), react()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
@@ -50,7 +80,7 @@ export default defineConfig(() => {
       emptyOutDir: outDirOutsideRoot ? true : undefined,
     },
     server: {
-      port: 5174,
+      port: inspectorDevPort,
       proxy: {
         "/api": {
           target: apiUrl,

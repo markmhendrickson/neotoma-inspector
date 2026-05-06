@@ -8,6 +8,37 @@ import { get, post } from "../client";
 
 export type AdminFeedbackMode = "hosted" | "local" | "disabled";
 
+/** Subset of `GET /admin/feedback/preflight` → `admin_session` (httpOnly cookie bridge). */
+export interface AdminFeedbackSessionPreflight {
+  active: boolean;
+  tier?: string;
+  thumbprint?: string;
+  sub?: string;
+  iss?: string;
+  expires_at?: string;
+}
+
+/** `GET /admin/feedback/auth/session` — cookie bridge after CLI redeem. */
+export type AdminFeedbackAuthSessionResponse = AdminFeedbackSessionPreflight & {
+  source?: "cookie" | "challenge";
+};
+
+/**
+ * Completes the unlock flow in the browser (sets httpOnly admin cookie when successful).
+ * The server returns HTTP 200 with `{ active: false }` when the challenge is unknown on
+ * **this** API instance (e.g. Inspector Settings URL ≠ CLI `--base-url`), so callers
+ * must not treat “200” alone as success.
+ */
+export async function activateFeedbackAdminSession(challenge: string): Promise<AdminFeedbackAuthSessionResponse> {
+  const data = await get<AdminFeedbackAuthSessionResponse>("/admin/feedback/auth/session", { challenge });
+  if (!data.active) {
+    throw new Error(
+      "Admin session was not activated on this API. Most often the Inspector API base URL (Settings) does not match the server where you ran `neotoma inspector admin unlock` (same host and port, including `localhost` vs `127.0.0.1`). Fix Settings, run the CLI again against that URL, and open the new unlock link. If the API restarted since redeem, mint a new challenge.",
+    );
+  }
+  return data;
+}
+
 export interface AdminProxyPreflight {
   /**
    * True when the admin surface is serving live responses. `false` only
@@ -37,6 +68,10 @@ export interface AdminProxyPreflight {
    */
   mode_env?: string;
   allowed_tiers: string[];
+  /** Direct AAuth tier on the preflight request (newer servers). */
+  current_direct_tier?: string;
+  /** Short-lived admin session from CLI redeem + GET /admin/feedback/auth/session. */
+  admin_session?: AdminFeedbackSessionPreflight;
 }
 
 export function adminFeedbackPreflight() {
@@ -54,6 +89,17 @@ export function listPendingFeedback(options?: { limit?: number; offset?: number 
   if (options?.offset !== undefined) params.set("offset", String(options.offset));
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return get<PendingFeedbackResponse>(`/admin/feedback/pending${suffix}`);
+}
+
+export interface AllFeedbackResponse {
+  items: Array<Record<string, unknown>>;
+  total: number;
+  mode: string;
+  [key: string]: unknown;
+}
+
+export function listAllFeedback() {
+  return get<AllFeedbackResponse>("/admin/feedback/all");
 }
 
 export function findFeedbackByCommit(sha: string) {

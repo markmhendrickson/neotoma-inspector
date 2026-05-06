@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -23,10 +24,14 @@ import {
   FindByCommitPanel,
   PendingQueue,
 } from "@/components/feedback/pending_queue";
+import { LocalStoreList } from "@/components/feedback/local_store_list";
+import { FeedbackStoreSyncPanel } from "@/components/feedback/feedback_store_sync_panel";
 import {
   PublishDialog,
   type PublishDraft,
 } from "@/components/feedback/publish_dialog";
+import { isApiUrlConfigured } from "@/api/client";
+import { activateFeedbackAdminSession } from "@/api/endpoints/feedback_admin";
 import { useAdminFeedbackPreflight } from "@/hooks/use_feedback_admin";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -257,6 +262,7 @@ function writeMineStorage(val: string | null) {
 }
 
 export default function FeedbackPage() {
+  const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlBucket = searchParams.get("bucket") as StatusBucket | null;
@@ -293,11 +299,38 @@ export default function FeedbackPage() {
     adminPreflight.data?.mode ??
     (adminProxyConfigured ? "hosted" : "disabled");
   const eligibleTier =
-    identity?.tier === "hardware" || identity?.tier === "software";
-  const canPublish = adminProxyConfigured && eligibleTier;
+    identity?.tier === "hardware" ||
+    identity?.tier === "software" ||
+    identity?.tier === "operator_attested";
+  const adminSessionActive = adminPreflight.data?.admin_session?.active === true;
+  const canPublish =
+    adminProxyConfigured && (eligibleTier || adminSessionActive);
 
-  const urlTab = searchParams.get("tab") === "pending" ? "pending" : "list";
-  const [topTab, setTopTab] = useState<"list" | "pending">(urlTab);
+  useEffect(() => {
+    const ch = searchParams.get("feedback_unlock_challenge")?.trim();
+    if (!ch || !isApiUrlConfigured()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await activateFeedbackAdminSession(ch);
+        if (cancelled) return;
+        await qc.invalidateQueries({ queryKey: ["admin-feedback-preflight"] });
+        const next = new URLSearchParams(searchParams);
+        next.delete("feedback_unlock_challenge");
+        setSearchParams(next, { replace: true });
+      } catch {
+        /* ignore — user can retry or use manual GET in browser */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, setSearchParams, qc]);
+
+  const rawTab = searchParams.get("tab");
+  const urlTab: "all" | "mirrored" | "pending" =
+    rawTab === "pending" ? "pending" : rawTab === "mirrored" ? "mirrored" : "all";
+  const [topTab, setTopTab] = useState<"all" | "mirrored" | "pending">(urlTab);
 
   const [publishState, setPublishState] = useState<{
     entity: EntitySnapshot;
@@ -321,6 +354,7 @@ export default function FeedbackPage() {
     if (hasScratchOnly) next.set("scratch", "1");
     else next.delete("scratch");
     if (topTab === "pending") next.set("tab", "pending");
+    else if (topTab === "mirrored") next.set("tab", "mirrored");
     else next.delete("tab");
     if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
@@ -432,13 +466,22 @@ export default function FeedbackPage() {
       actions={showBackgroundQueryRefresh(query) ? <QueryRefreshIndicator /> : undefined}
     >
       <div className="space-y-6">
+        <FeedbackStoreSyncPanel
+          adminProxyConfigured={adminProxyConfigured}
+          adminMode={adminMode}
+          baseUrlEnv={adminPreflight.data?.base_url_env ?? "AGENT_SITE_BASE_URL"}
+          bearerEnv={adminPreflight.data?.bearer_env ?? "AGENT_SITE_ADMIN_BEARER"}
+          modeEnv={adminPreflight.data?.mode_env}
+        />
+
         {adminProxyConfigured ? (
           <Tabs
             value={topTab}
-            onValueChange={(v) => setTopTab(v as "list" | "pending")}
+            onValueChange={(v) => setTopTab(v as "all" | "mirrored" | "pending")}
           >
             <TabsList>
-              <TabsTrigger value="list">Mirrored records</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="mirrored">Mirrored records</TabsTrigger>
               <TabsTrigger value="pending">Pending queue</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -447,9 +490,9 @@ export default function FeedbackPage() {
         {!canPublish && adminPreflight.data ? (
           <p className="rounded-md border border-dashed bg-muted/30 p-2 text-xs text-muted-foreground">
             {adminProxyConfigured
-              ? `Publish-to-pipeline disabled — current AAuth tier is "${
+              ? `Publish-to-pipeline disabled — /session tier is "${
                   identity?.tier ?? "anonymous"
-                }", need hardware or software to drive admin writes.`
+                }" and no active admin cookie. Use AAuth (hardware / software / operator_attested) on API traffic, or run \`neotoma inspector admin unlock\` and open the printed \`/feedback/admin-unlock?challenge=…\` URL (legacy: \`?feedback_unlock_challenge=\` on Feedback). See docs/subsystems/agent_feedback_pipeline.md.`
               : adminMode === "disabled"
               ? `Publish-to-pipeline disabled — admin surface explicitly disabled via ${adminPreflight.data.mode_env ?? "NEOTOMA_FEEDBACK_ADMIN_MODE"}=disabled. Unset it to run the self-contained local pipeline, or set ${adminPreflight.data.base_url_env} and ${adminPreflight.data.bearer_env} to forward to agent.neotoma.io.`
               : `Publish-to-pipeline disabled — set ${adminPreflight.data.base_url_env} and ${adminPreflight.data.bearer_env} on the Neotoma server to enable.`}
@@ -472,6 +515,8 @@ export default function FeedbackPage() {
             <FindByCommitPanel />
             <PendingQueue />
           </div>
+        ) : adminProxyConfigured && topTab === "all" ? (
+          <LocalStoreList />
         ) : (
           <FeedbackListContent
             summary={summary}

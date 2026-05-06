@@ -7,6 +7,9 @@ import { Toaster } from "sonner";
 import App from "./App";
 import "./index.css";
 import { consumeSandboxSessionHandoff, parseSessionHash } from "@/lib/sandbox_session";
+import { Theme_provider, initialize_theme_on_load } from "@/hooks/use_theme";
+
+initialize_theme_on_load();
 
 const LIVE_QUERY_INTERVAL_MS = 5_000;
 const ROUTER_BASENAME = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
@@ -28,10 +31,12 @@ function renderApp() {
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter basename={ROUTER_BASENAME}>
-          <TooltipProvider delayDuration={250} skipDelayDuration={0}>
-            <App />
-            <Toaster position="bottom-right" />
-          </TooltipProvider>
+          <Theme_provider>
+            <TooltipProvider delayDuration={250} skipDelayDuration={0}>
+              <App />
+              <Toaster position="bottom-right" />
+            </TooltipProvider>
+          </Theme_provider>
         </BrowserRouter>
       </QueryClientProvider>
     </React.StrictMode>

@@ -24,7 +24,7 @@ npm run dev -- --env prod
 npm run build
 ```
 
-Vite defaults to **`base: /inspector/`** when `VITE_PUBLIC_BASE_PATH` is unset, so the dev server is at **`http://localhost:5174/inspector/`** (same path shape as the bundled Neotoma server). Override with `VITE_PUBLIC_BASE_PATH=/` for a root-hosted build.
+Vite defaults to **`base: /inspector/`** when `VITE_PUBLIC_BASE_PATH` is unset, so the dev server is at **`http://localhost:5175/inspector/`** (port **5175** avoids clashing with the repo root marketing Vite dev server, which often runs on **5173**/**5174**). Override the dev port with **`VITE_INSPECTOR_DEV_PORT`** or **`INSPECTOR_DEV_PORT`**. Override `VITE_PUBLIC_BASE_PATH=/` for a root-hosted build.
 
 ## Configuration
 
