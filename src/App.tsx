@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/app_layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -18,8 +18,8 @@ const SchemaDetailPage = lazy(() => import("@/pages/schema_detail"));
 const TimelinePage = lazy(() => import("@/pages/timeline"));
 const TimelineEventDetailPage = lazy(() => import("@/pages/timeline_event_detail"));
 const RecentActivityPage = lazy(() => import("@/pages/recent_activity"));
-const FeedbackPage = lazy(() => import("@/pages/feedback"));
-const FeedbackAdminUnlockPage = lazy(() => import("@/pages/feedback_admin_unlock"));
+const IssuesPage = lazy(() => import("@/pages/issues"));
+const IssueDetailPage = lazy(() => import("@/pages/issue_detail"));
 const RecentConversationsPage = lazy(() => import("@/pages/recent_conversations"));
 const ConversationDetailPage = lazy(() => import("@/pages/conversation_detail"));
 const TurnsPage = lazy(() => import("@/pages/turns"));
@@ -32,6 +32,7 @@ const AgentGrantDetailPage = lazy(() => import("@/pages/agent_grant_detail"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const SandboxPage = lazy(() => import("@/pages/sandbox"));
 const ComplianceDashboardPage = lazy(() => import("@/pages/compliance"));
+const AccessPoliciesPage = lazy(() => import("@/pages/access_policies"));
 
 function PageLoader() {
   return (
@@ -61,8 +62,10 @@ export default function App() {
           <Route path="/schemas" element={<SchemasPage />} />
           <Route path="/schemas/:entityType" element={<SchemaDetailPage />} />
           <Route path="/activity" element={<RecentActivityPage />} />
-          <Route path="/feedback" element={<FeedbackPage />} />
-          <Route path="/feedback/admin-unlock" element={<FeedbackAdminUnlockPage />} />
+          <Route path="/feedback" element={<Navigate to="/issues" replace />} />
+          <Route path="/feedback/admin-unlock" element={<Navigate to="/issues" replace />} />
+          <Route path="/issues" element={<IssuesPage />} />
+          <Route path="/issues/:number" element={<IssueDetailPage />} />
           <Route path="/conversations/:conversationId" element={<ConversationDetailPage />} />
           <Route path="/conversations" element={<RecentConversationsPage />} />
           <Route path="/turns" element={<TurnsPage />} />
@@ -76,6 +79,7 @@ export default function App() {
           <Route path="/agents/:key" element={<AgentDetailPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/sandbox" element={<SandboxPage />} />
+          <Route path="/access-policies" element={<AccessPoliciesPage />} />
           <Route path="/compliance" element={<ComplianceDashboardPage />} />
         </Route>
       </Routes>

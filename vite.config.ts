@@ -57,6 +57,8 @@ export default defineConfig(() => {
   const outDirOutsideRoot =
     path.relative(__dirname, buildOutDir).startsWith("..") ||
     path.relative(__dirname, buildOutDir).includes("..");
+  /** `vite build --watch` + emptyOutDir clears the whole tree each rebuild — races the API static mount. */
+  const isBuildWatch = process.argv.includes("--watch");
 
   const devPortRaw =
     process.env.VITE_INSPECTOR_DEV_PORT?.trim() ||
@@ -77,7 +79,7 @@ export default defineConfig(() => {
     },
     build: {
       outDir: buildOutDir,
-      emptyOutDir: outDirOutsideRoot ? true : undefined,
+      emptyOutDir: outDirOutsideRoot ? !isBuildWatch : undefined,
     },
     server: {
       port: inspectorDevPort,

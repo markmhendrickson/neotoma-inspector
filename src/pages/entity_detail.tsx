@@ -8,6 +8,7 @@ import {
 } from "@/hooks/use_entities";
 import { useSchemaByType } from "@/hooks/use_schemas";
 import { useGraphNeighborhood } from "@/hooks/use_graph";
+import { useAgentGrants } from "@/hooks/use_agents";
 import {
   useDeleteEntity,
   useRestoreEntity,
@@ -41,6 +42,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EntityLink } from "@/components/shared/entity_link";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { AttributionCard } from "@/components/shared/attribution_card";
+import { EntityAdmissionGrantsSection } from "@/components/shared/entity_admission_grants_section";
 import { TurnProvenanceCard } from "@/components/shared/turn_provenance_card";
 import {
   EntityOverviewCard,
@@ -66,6 +68,7 @@ export default function EntityDetailPage() {
   const entity = useEntityById(id);
   const observations = useEntityObservations(id);
   const relationships = useEntityRelationships(id, { expand_entities: true });
+  const grantsQ = useAgentGrants({ status: "all" });
 
   const e = entity.data;
   const schemaQuery = useSchemaByType(e?.entity_type);
@@ -265,7 +268,10 @@ export default function EntityDetailPage() {
     showBackgroundQueryRefresh(relationships) ||
     showBackgroundQueryRefresh(markdownQuery) ||
     showBackgroundQueryRefresh(graph) ||
-    showBackgroundQueryRefresh(schemaQuery);
+    showBackgroundQueryRefresh(schemaQuery) ||
+    showBackgroundQueryRefresh(grantsQ);
+
+  const admissionGrants = grantsQ.data?.grants ?? [];
 
   const createdAt = e.created_at ?? e.computed_at;
   const header = (
@@ -403,6 +409,14 @@ export default function EntityDetailPage() {
           />
         </div>
       </EntityOverviewCard>
+
+      <EntityAdmissionGrantsSection
+        entityType={e.entity_type}
+        entityId={entityId}
+        grants={admissionGrants}
+        grantsLoading={showInitialQuerySkeleton(grantsQ)}
+        grantsError={grantsQ.error ? (grantsQ.error as Error) : null}
+      />
 
       <div className="space-y-8">
         <section className="space-y-4">

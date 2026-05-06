@@ -249,6 +249,9 @@ export interface RelatedEntityExpansion {
   entity_type?: string;
   canonical_name?: string;
   snapshot?: Record<string, unknown>;
+  /** Present when row comes from `entity_snapshots` expansion. */
+  provenance?: Record<string, unknown>;
+  raw_fragments?: Record<string, unknown>;
   entity_type_label?: string | null;
 }
 
@@ -385,6 +388,12 @@ export interface AgentDirectoryEntry {
   total_records: number;
   record_counts: Partial<Record<RecordActivityType, number>>;
   /**
+   * Observation rows for this agent, grouped by target `entity_type`
+   * (see `GET /agents` OpenAPI). Highlights feedback vs governance vs
+   * other high-signal writes.
+   */
+  observation_entity_type_counts?: Record<string, number>;
+  /**
    * Latest attestation outcome observed for this agent. Surfaced on the
    * agent detail page via `AttestationEnvelopePanel`. Optional and
    * forward-compatible: today the v0.8.0 server returns `null`/absent;
@@ -437,6 +446,9 @@ export interface AgentGrant {
   import_source?: string | null;
   created_at?: string | null;
   last_observation_at?: string | null;
+  linked_github_login?: string | null;
+  linked_github_user_id?: number | null;
+  linked_github_verified_at?: string | null;
 }
 
 export interface AgentGrantsListResponse {

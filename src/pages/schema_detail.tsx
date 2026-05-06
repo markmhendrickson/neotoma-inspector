@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { useSchemaByType, useSchemaRecommendations, useSchemaCandidates } from "@/hooks/use_schemas";
+import { useAgentGrants } from "@/hooks/use_agents";
 import { useUpdateSchema } from "@/hooks/use_mutations";
 import { PageShell } from "@/components/layout/page_shell";
 import { DetailPageSkeleton, InlineSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
@@ -16,11 +17,41 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { TypeBadge } from "@/components/shared/type_badge";
 import { JsonViewer } from "@/components/shared/json_viewer";
 import { toast } from "sonner";
-import { Plus, BarChart3, Lightbulb } from "lucide-react";
+import { Plus, BarChart3, Lightbulb, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { SchemaAdmissionGrantsCard } from "@/components/shared/schema_admission_grants";
+
+const POLICY_DESCRIPTIONS: Record<string, string> = {
+  closed: "No guest access. Only admitted agents with grants can interact.",
+  read_only: "Guests can read entities of this type but cannot write.",
+  submit_only: "Guests can submit new entities but cannot read.",
+  submitter_scoped: "Guests can submit and read only their own entities.",
+  open: "Guests can read and write all entities of this type.",
+};
+
+function GuestAccessPolicyContent({ policy, entityType }: { policy?: string; entityType: string }) {
+  const mode = policy || "closed";
+  const variant = mode === "closed" ? "secondary"
+    : mode === "open" ? "destructive"
+    : "default" as const;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Badge variant={variant}>{mode}</Badge>
+        {!policy && <span className="text-xs text-muted-foreground">(default)</span>}
+      </div>
+      <p className="text-sm text-muted-foreground">{POLICY_DESCRIPTIONS[mode] ?? `Unknown mode: ${mode}`}</p>
+      <p className="text-xs text-muted-foreground">
+        Manage via CLI: <code className="text-xs">neotoma access set {entityType} &lt;mode&gt;</code>
+      </p>
+    </div>
+  );
+}
 
 export default function SchemaDetailPage() {
   const { entityType } = useParams<{ entityType: string }>();
   const schema = useSchemaByType(entityType);
+  const grantsQ = useAgentGrants({ status: "all" });
   const recommendations = useSchemaRecommendations(entityType);
   const candidates = useSchemaCandidates(entityType);
   const updateMut = useUpdateSchema();
@@ -50,7 +81,8 @@ export default function SchemaDetailPage() {
   const schemaDetailRefreshing =
     showBackgroundQueryRefresh(schema) ||
     showBackgroundQueryRefresh(recommendations) ||
-    showBackgroundQueryRefresh(candidates);
+    showBackgroundQueryRefresh(candidates) ||
+    showBackgroundQueryRefresh(grantsQ);
 
   return (
     <PageShell
@@ -93,6 +125,24 @@ export default function SchemaDetailPage() {
         <TypeBadge type={s.entity_type} />
         <span className="text-sm text-muted-foreground">v{s.schema_version}</span>
         {s.active !== false && <span className="text-xs text-green-600 font-medium">Active</span>}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 mb-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-4 w-4" /> Guest Access Policy
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GuestAccessPolicyContent
+              policy={typeof s.metadata === "object" && s.metadata !== null ? (s.metadata as Record<string, unknown>).guest_access_policy as string | undefined : undefined}
+              entityType={s.entity_type}
+            />
+          </CardContent>
+        </Card>
+
+        <SchemaAdmissionGrantsCard entityType={s.entity_type} />
       </div>
 
       <Tabs defaultValue="fields">

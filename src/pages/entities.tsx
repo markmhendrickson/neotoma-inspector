@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useEntitiesQuery } from "@/hooks/use_entities";
 import { useStats } from "@/hooks/use_stats";
+import { useAgentGrants } from "@/hooks/use_agents";
 import { PageShell } from "@/components/layout/page_shell";
 import { DataTableSkeleton, QueryErrorAlert } from "@/components/shared/query_status";
 import { DataTable } from "@/components/ui/data-table";
@@ -16,6 +17,7 @@ import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicat
 import type { ColumnDef } from "@tanstack/react-table";
 import type { EntitySnapshot } from "@/types/api";
 import { Search } from "lucide-react";
+import { EntityListAdmissionCell } from "@/components/shared/entity_list_admission_cell";
 
 const PAGE_SIZE = 25;
 
@@ -35,6 +37,8 @@ export default function EntitiesPage() {
   const [identityBasis, setIdentityBasis] = useState<string>("");
 
   const stats = useStats();
+  const grantsQ = useAgentGrants({ status: "all" });
+  const admissionGrants = grantsQ.data?.grants ?? [];
   const entityTypes = stats.data ? Object.keys(stats.data.entities_by_type).sort() : [];
   const [typeSelectQuery, setTypeSelectQuery] = useState("");
 
@@ -74,53 +78,66 @@ export default function EntitiesPage() {
         | "target_id") || undefined,
   });
 
-  const columns: ColumnDef<EntitySnapshot, unknown>[] = [
-    {
-      header: "Name",
-      accessorFn: (row) => row.canonical_name || row.snapshot?.name || row.snapshot?.title || entityRowId(row),
-      cell: ({ row }) => {
-        const eid = entityRowId(row.original);
-        return (
-          <Link to={`/entities/${encodeURIComponent(eid)}`} className="font-medium text-primary hover:underline">
-            {String(
-              row.original.canonical_name ||
-                row.original.snapshot?.name ||
-                row.original.snapshot?.title ||
-                truncateId(eid)
-            )}
-          </Link>
-        );
+  const columns: ColumnDef<EntitySnapshot, unknown>[] = useMemo(
+    () => [
+      {
+        header: "Name",
+        accessorFn: (row) =>
+          row.canonical_name || row.snapshot?.name || row.snapshot?.title || entityRowId(row),
+        cell: ({ row }) => {
+          const eid = entityRowId(row.original);
+          return (
+            <Link to={`/entities/${encodeURIComponent(eid)}`} className="font-medium text-primary hover:underline">
+              {String(
+                row.original.canonical_name ||
+                  row.original.snapshot?.name ||
+                  row.original.snapshot?.title ||
+                  truncateId(eid)
+              )}
+            </Link>
+          );
+        },
       },
-    },
-    {
-      header: "Type",
-      accessorKey: "entity_type",
-      cell: ({ getValue }) => <TypeBadge type={getValue() as string} />,
-    },
-    {
-      header: "Observations",
-      accessorKey: "observation_count",
-      cell: ({ getValue }) => getValue() ?? "—",
-    },
-    {
-      header: "Last Observation",
-      accessorKey: "last_observation_at",
-      cell: ({ getValue }) => formatDate(getValue() as string),
-    },
-    {
-      header: "ID",
-      accessorFn: (row) => entityRowId(row),
-      cell: ({ getValue }) => (
-        <span className="font-mono text-xs text-muted-foreground">{truncateId(getValue() as string, 12)}</span>
-      ),
-    },
-  ];
+      {
+        header: "Type",
+        accessorKey: "entity_type",
+        cell: ({ getValue }) => <TypeBadge type={getValue() as string} />,
+      },
+      {
+        header: "Admission",
+        id: "admission",
+        cell: ({ row }) => <EntityListAdmissionCell row={row.original} grants={admissionGrants} />,
+      },
+      {
+        header: "Observations",
+        accessorKey: "observation_count",
+        cell: ({ getValue }) => getValue() ?? "—",
+      },
+      {
+        header: "Last Observation",
+        accessorKey: "last_observation_at",
+        cell: ({ getValue }) => formatDate(getValue() as string),
+      },
+      {
+        header: "ID",
+        accessorFn: (row) => entityRowId(row),
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-muted-foreground">{truncateId(getValue() as string, 12)}</span>
+        ),
+      },
+    ],
+    [admissionGrants],
+  );
 
   return (
     <PageShell
       title="Entities"
       description={query.data ? `${query.data.total.toLocaleString()} total` : undefined}
-      actions={showBackgroundQueryRefresh(query) ? <QueryRefreshIndicator /> : undefined}
+      actions={
+        showBackgroundQueryRefresh(query) || showBackgroundQueryRefresh(grantsQ) ? (
+          <QueryRefreshIndicator />
+        ) : undefined
+      }
     >
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[200px] max-w-sm">
@@ -212,7 +229,7 @@ export default function EntitiesPage() {
       </div>
 
       {showInitialQuerySkeleton(query) ? (
-        <DataTableSkeleton rows={12} cols={5} />
+        <DataTableSkeleton rows={12} cols={6} />
       ) : query.error ? (
         <QueryErrorAlert title="Could not load entities">{query.error.message}</QueryErrorAlert>
       ) : (

@@ -28,6 +28,7 @@ import {
   MessageSquareText,
   Cpu,
   ShieldCheck,
+  Shield,
   KeyRound,
   Settings,
   Loader2,
@@ -93,7 +94,7 @@ const navGroups = [
       { to: "/turns", label: "Turns", icon: Repeat },
       { to: "/compliance", label: "Compliance", icon: ShieldCheck },
       { to: "/activity", label: "Activity", icon: Activity },
-      { to: "/feedback", label: "Feedback", icon: MessageSquare },
+      { to: "/issues", label: "Issues", icon: MessageSquare },
     ],
   },
   {
@@ -112,6 +113,7 @@ const navGroups = [
       { to: "/interpretations", label: "Interpretations", icon: Cpu },
       { to: "/agents", label: "Agents", icon: ShieldCheck },
       { to: "/agents/grants", label: "Agent grants", icon: KeyRound },
+      { to: "/access-policies", label: "Access Policies", icon: Shield },
     ],
   },
   {

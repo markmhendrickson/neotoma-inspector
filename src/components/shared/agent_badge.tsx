@@ -195,30 +195,20 @@ const TIER_VISUAL: Record<
   },
 };
 
-export interface AgentBadgeProps {
-  /**
-   * Either a raw provenance object (we will extract attribution) or an
-   * already-extracted {@link AgentAttribution}. Passing the raw blob is
-   * convenient inside table cells; passing the extracted value avoids
-   * repeated parsing on detail pages.
-   */
-  provenance?: Record<string, unknown> | null;
-  attribution?: AgentAttribution | null;
-  /** When true, omit the label and show only the tier pill. */
-  iconOnly?: boolean;
-  className?: string;
+export interface AgentAttributionTooltipBodyProps {
+  /** Null or partial objects still render the anonymous tier explainer. */
+  attribution: AgentAttribution | null;
 }
 
-export function AgentBadge({
-  provenance,
-  attribution: explicitAttribution,
-  iconOnly = false,
-  className,
-}: AgentBadgeProps) {
-  const attribution = React.useMemo(
-    () => explicitAttribution ?? extractAgentAttribution(provenance),
-    [explicitAttribution, provenance]
-  );
+/**
+ * Rich tooltip / panel body listing every surfaced write-path identity field
+ * (tier, thumbprint, public key, JWT claims, clientInfo, attestation, etc.).
+ * Shared by {@link AgentBadge} and issue views that show a plain GitHub-style
+ * `by …` line but need the same drill-down as tables.
+ */
+export function AgentAttributionTooltipBody({
+  attribution,
+}: AgentAttributionTooltipBodyProps) {
   const tier: AgentAttributionTier =
     attribution?.attribution_tier ?? "anonymous";
   const visual = TIER_VISUAL[tier];
@@ -265,6 +255,53 @@ export function AgentBadge({
     ["Failure reason", att?.reason ?? undefined],
   ];
 
+  return (
+    <div className="space-y-1 text-xs">
+      <p className="font-medium">{visual.label}</p>
+      <p className="text-muted-foreground">{visual.description}</p>
+      <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-2 gap-y-0.5">
+        {tooltipRows
+          .filter(([, value]) => !!value)
+          .map(([key, value]) => (
+            <React.Fragment key={key}>
+              <dt className="text-muted-foreground">{key}</dt>
+              <dd className="break-all font-mono">{value}</dd>
+            </React.Fragment>
+          ))}
+      </dl>
+    </div>
+  );
+}
+
+export interface AgentBadgeProps {
+  /**
+   * Either a raw provenance object (we will extract attribution) or an
+   * already-extracted {@link AgentAttribution}. Passing the raw blob is
+   * convenient inside table cells; passing the extracted value avoids
+   * repeated parsing on detail pages.
+   */
+  provenance?: Record<string, unknown> | null;
+  attribution?: AgentAttribution | null;
+  /** When true, omit the label and show only the tier pill. */
+  iconOnly?: boolean;
+  className?: string;
+}
+
+export function AgentBadge({
+  provenance,
+  attribution: explicitAttribution,
+  iconOnly = false,
+  className,
+}: AgentBadgeProps) {
+  const attribution = React.useMemo(
+    () => explicitAttribution ?? extractAgentAttribution(provenance),
+    [explicitAttribution, provenance]
+  );
+  const tier: AgentAttributionTier =
+    attribution?.attribution_tier ?? "anonymous";
+  const visual = TIER_VISUAL[tier];
+  const label = getAttributionLabel(attribution);
+
   const trigger = (
     <span
       className={cn(
@@ -287,20 +324,7 @@ export function AgentBadge({
       <Tooltip>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
         <TooltipContent className="max-w-sm">
-          <div className="space-y-1 text-xs">
-            <p className="font-medium">{visual.label}</p>
-            <p className="text-muted-foreground">{visual.description}</p>
-            <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-2 gap-y-0.5">
-              {tooltipRows
-                .filter(([, value]) => !!value)
-                .map(([key, value]) => (
-                  <React.Fragment key={key}>
-                    <dt className="text-muted-foreground">{key}</dt>
-                    <dd className="break-all font-mono">{value}</dd>
-                  </React.Fragment>
-                ))}
-            </dl>
-          </div>
+          <AgentAttributionTooltipBody attribution={attribution} />
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
