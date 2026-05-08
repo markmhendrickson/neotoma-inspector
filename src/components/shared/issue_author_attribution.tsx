@@ -30,7 +30,7 @@ export interface IssueAuthorLineProps {
    */
   context?: IssueAuthorLineContext;
   /**
-   * GitHub / snapshot login shown in the tooltip when it differs from the trigger
+   * Underlying login shown in the tooltip when it differs from the trigger
    * (e.g. trigger `User` with underlying `octocat`). Defaults to `author`.
    */
   tooltipSnapshotAuthor?: string;
@@ -52,8 +52,7 @@ export function IssueAuthorLine({
     [provenance],
   );
 
-  const snapshotLabel =
-    context === "message" ? "Message author (GitHub / snapshot):" : "Issue author (GitHub / snapshot):";
+  const snapshotLabel = context === "message" ? "Author:" : "Issue author:";
   const snapshotAuthor = (tooltipSnapshotAuthor ?? author).trim() || author;
 
   return (
@@ -88,9 +87,7 @@ export function IssueAuthorLine({
               </div>
             )}
             <div className="border-t border-border pt-2">
-              <p className="font-semibold text-foreground mb-1.5">
-                Neotoma agent identity (snapshot provenance)
-              </p>
+              <p className="font-semibold text-foreground mb-1.5">Agent</p>
               <AgentAttributionTooltipBody attribution={attribution} />
             </div>
           </div>

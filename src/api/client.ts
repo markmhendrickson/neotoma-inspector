@@ -161,13 +161,13 @@ export function clearAuthToken() {
   localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 }
 
-function formatHttpErrorMessage(status: number, body: string): string {
+function formatHttpErrorMessage(status: number, body: string, requestPath?: string): string {
   const raw = body.trim();
   if (!raw) return `HTTP ${status}`;
 
-  const cannotGet = raw.match(/Cannot GET (\S+)/);
-  if (cannotGet) {
-    const p = cannotGet[1];
+  const cannotRoute = raw.match(/Cannot (GET|POST|PUT|PATCH|DELETE)\s+(\S+)/);
+  if (cannotRoute) {
+    const p = (cannotRoute[2] ?? "").split("<")[0]?.trim() ?? cannotRoute[2];
     return (
       `HTTP ${status}: missing route ${p}. Rebuild the API (npm run build:server) and restart it, ` +
       `or run npm run watch:server / tsx watch src/actions.ts. Confirm Settings → API URL targets this Neotoma instance.`
@@ -175,7 +175,17 @@ function formatHttpErrorMessage(status: number, body: string): string {
   }
 
   if (raw.startsWith("<!DOCTYPE") || raw.startsWith("<html")) {
-    return `HTTP ${status}: server returned HTML instead of JSON — wrong API base URL or a proxy/front-end on that port.`;
+    let msg = `HTTP ${status}: server returned HTML instead of JSON — wrong API base URL or a proxy/front-end on that port.`;
+    if (
+      status === 404 &&
+      requestPath &&
+      requestPath.includes("/issues/") &&
+      !requestPath.startsWith("/api/")
+    ) {
+      msg +=
+        " If the API URL is correct, the running server may be an older build: run `npm run build:server` and restart the API (or save `src/actions.ts` if you use `tsx watch`) so `POST /issues/add_message` is registered.";
+    }
+    return msg;
   }
 
   try {
@@ -202,7 +212,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers, credentials: "include" });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(formatHttpErrorMessage(res.status, body));
+    throw new Error(formatHttpErrorMessage(res.status, body, path));
   }
   return res.json() as Promise<T>;
 }

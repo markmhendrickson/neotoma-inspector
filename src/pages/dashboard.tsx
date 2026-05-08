@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { isApiUrlConfigured, MISSING_API_URL_MESSAGE } from "@/api/client";
 import { useStats } from "@/hooks/use_stats";
+import { useEntitiesQuery } from "@/hooks/use_entities";
+import { usePeersList } from "@/hooks/use_peers";
 import { useRecentConversations } from "@/hooks/use_recent_conversations";
 import { useHealthCheck, useServerInfo, useHealthCheckSnapshots } from "@/hooks/use_infra";
 import { PageShell } from "@/components/layout/page_shell";
@@ -29,7 +31,20 @@ import {
 import { showBackgroundQueryRefresh, showInitialQuerySkeleton } from "@/lib/query_loading";
 import { formatDate } from "@/lib/utils";
 import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicator";
-import { Box, ChevronDown, Eye, FileText, GitBranch, Clock, Cpu, Shield, ListFilter, MessageSquareText } from "lucide-react";
+import {
+  Bell,
+  Box,
+  ChevronDown,
+  Clock,
+  Cpu,
+  Eye,
+  FileText,
+  GitBranch,
+  ListFilter,
+  MessageSquareText,
+  RefreshCw,
+  Shield,
+} from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 /** Default number of entity types shown in the bar chart (by count, highest first). */
@@ -39,6 +54,13 @@ const BADGE_INCREMENT = 10;
 
 export default function DashboardPage() {
   const stats = useStats();
+  const subscriptionStats = useEntitiesQuery({
+    entity_type: "subscription",
+    limit: 1,
+    offset: 0,
+    include_snapshots: false,
+  });
+  const peersList = usePeersList();
   const recentConversations = useRecentConversations({ limit: 10, offset: 0 });
   const health = useHealthCheck();
   const serverInfo = useServerInfo();
@@ -149,13 +171,31 @@ export default function DashboardPage() {
         <QueryErrorAlert title="Could not load dashboard stats">{stats.error.message}</QueryErrorAlert>
       ) : s ? (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <StatCard title="Entities" value={s.total_entities} icon={Box} />
             <StatCard title="Observations" value={s.total_observations} icon={Eye} />
             <StatCard title="Sources" value={s.sources_count} icon={FileText} />
             <StatCard title="Relationships" value={s.total_relationships} icon={GitBranch} />
             <StatCard title="Events" value={s.total_events} icon={Clock} />
             <StatCard title="Interpretations" value={s.total_interpretations} icon={Cpu} />
+            <Link to="/subscriptions" className="block rounded-md ring-offset-background transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <StatCard
+                title="Subscriptions"
+                value={subscriptionStats.data?.total ?? (subscriptionStats.isPending ? "…" : 0)}
+                icon={Bell}
+                description="Substrate webhooks / SSE"
+              />
+            </Link>
+            <Link to="/peers" className="block rounded-md ring-offset-background transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <StatCard
+                title="Peers"
+                value={
+                  peersList.data?.peers?.length ?? (peersList.isPending ? "…" : 0)
+                }
+                icon={RefreshCw}
+                description="Cross-instance sync"
+              />
+            </Link>
           </div>
 
           <Separator />
@@ -327,6 +367,18 @@ export default function DashboardPage() {
                       Stale snapshots: {snapshotHealth.data.stale_snapshots ?? 0}
                     </p>
                   )}
+                  {peersList.data && (
+                    <div className="flex justify-between pt-1 border-t mt-2">
+                      <span className="text-muted-foreground">Peers</span>
+                      <span>
+                        {peersList.data.peers.filter((p) => p.active).length} active /{" "}
+                        {peersList.data.peers.length} total
+                      </span>
+                    </div>
+                  )}
+                  {peersList.isPending ? (
+                    <p className="text-xs text-muted-foreground pt-1">Loading peer summary…</p>
+                  ) : null}
                 </CardContent>
               </Card>
 

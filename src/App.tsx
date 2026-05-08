@@ -33,6 +33,9 @@ const SettingsPage = lazy(() => import("@/pages/settings"));
 const SandboxPage = lazy(() => import("@/pages/sandbox"));
 const ComplianceDashboardPage = lazy(() => import("@/pages/compliance"));
 const AccessPoliciesPage = lazy(() => import("@/pages/access_policies"));
+const SubscriptionsPage = lazy(() => import("@/pages/subscriptions"));
+const PeersPage = lazy(() => import("@/pages/peers"));
+const PeerDetailPage = lazy(() => import("@/pages/peer_detail"));
 
 function PageLoader() {
   return (
@@ -80,6 +83,9 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/sandbox" element={<SandboxPage />} />
           <Route path="/access-policies" element={<AccessPoliciesPage />} />
+          <Route path="/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/peers" element={<PeersPage />} />
+          <Route path="/peers/:peerId" element={<PeerDetailPage />} />
           <Route path="/compliance" element={<ComplianceDashboardPage />} />
         </Route>
       </Routes>

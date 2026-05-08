@@ -8,7 +8,7 @@ import { PageShell } from "@/components/layout/page_shell";
 import { ListSkeleton } from "@/components/shared/query_status";
 import { issueEntityMatchesSegment } from "@/utils/issue_navigation";
 import type { EntitySnapshot, RelatedEntityExpansion } from "@/types/api";
-import { bulkCloseIssues, bulkRemoveIssues } from "@/api/endpoints/issues";
+import { bulkCloseIssues, bulkRemoveIssues, issuesAddMessage } from "@/api/endpoints/issues";
 import { IssueAuthorLine } from "@/components/shared/issue_author_attribution";
 
 type RelRow = {
@@ -75,7 +75,7 @@ function IssueAccessTokenPanel({ token }: { token: string }) {
       </div>
       <code className="mt-2 block break-all font-mono text-xs leading-relaxed">{token}</code>
       <p className="mt-1.5 text-xs text-muted-foreground">
-        For guest-scoped issue APIs (e.g. <code className="text-[11px]">/guest/entities/…</code>). Treat like a
+        For guest-scoped issue APIs (e.g. <code className="text-[11px]">/entities/…</code>). Treat like a
         secret.
       </p>
     </div>
@@ -182,7 +182,7 @@ function messageDisplayAuthor(
   return "unknown";
 }
 
-/** GitHub / snapshot login for tooltip (may differ from role label like `User`). */
+/** Snapshot `author` / expansion login for tooltip (may differ from role label like `User`). */
 function messageTooltipSnapshotAuthor(
   exp: RelatedEntityExpansion | Record<string, unknown> | undefined,
   snap: Record<string, unknown>,
@@ -290,6 +290,9 @@ export default function IssueDetailPage() {
   const navigate = useNavigate();
   const [actionBusy, setActionBusy] = useState<"close" | "remove" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [composeBody, setComposeBody] = useState("");
+  const [composeBusy, setComposeBusy] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
   const [conversationBodyView, setConversationBodyView] = useState<ConversationBodyView>("formatted");
 
   /** GitHub issue number, `entity_id`, or other stable segment from the list link. */
@@ -682,6 +685,66 @@ export default function IssueDetailPage() {
             ))}
           </div>
         )}
+
+        {issueRowId ? (
+          <div className="mt-8 border-t border-border pt-6">
+            <h3 className="text-sm font-semibold text-foreground mb-2">Add reply</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Markdown supported. Posts to the issue thread (and GitHub when linked), same as{" "}
+              <code className="text-[11px]">add_issue_message</code>.
+            </p>
+            <textarea
+              value={composeBody}
+              onChange={(e) => {
+                setComposeBody(e.target.value);
+                if (composeError) setComposeError(null);
+              }}
+              disabled={composeBusy || issueStatus === "closed"}
+              rows={5}
+              placeholder="Write a message…"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            />
+            {composeError ? (
+              <p className="text-sm text-destructive mt-2" role="alert">
+                {composeError}
+              </p>
+            ) : null}
+            {issueStatus === "closed" ? (
+              <p className="text-xs text-muted-foreground mt-2">Reopen the issue before adding replies from here.</p>
+            ) : null}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={composeBusy || !composeBody.trim() || issueStatus === "closed"}
+                onClick={async () => {
+                  const body = composeBody.trim();
+                  if (!body || !issueRowId) return;
+                  setComposeError(null);
+                  setComposeBusy(true);
+                  try {
+                    await issuesAddMessage({ entity_id: issueRowId, body });
+                    setComposeBody("");
+                    await Promise.all([
+                      queryClient.invalidateQueries({ queryKey: ["entity-relationships", issueRowId] }),
+                      conversationId
+                        ? queryClient.invalidateQueries({ queryKey: ["entity-relationships", conversationId] })
+                        : Promise.resolve(),
+                      queryClient.invalidateQueries({ queryKey: ["entity", issueRowId] }),
+                      queryClient.invalidateQueries({ queryKey: ["entities"] }),
+                    ]);
+                  } catch (e) {
+                    setComposeError(e instanceof Error ? e.message : String(e));
+                  } finally {
+                    setComposeBusy(false);
+                  }
+                }}
+                className="text-sm px-3 py-1.5 rounded-md border border-border bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {composeBusy ? "Sending…" : "Send message"}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </PageShell>
   );

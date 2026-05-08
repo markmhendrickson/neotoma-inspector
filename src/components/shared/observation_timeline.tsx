@@ -101,6 +101,22 @@ function TimelineRow({
           </span>
         ) : null}
         <AgentBadge provenance={observation.provenance ?? null} />
+        {developerView && observation.observation_source ? (
+          <span
+            className="inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+            title="observation_source"
+          >
+            src:{observation.observation_source}
+          </span>
+        ) : null}
+        {developerView && observation.source_peer_id ? (
+          <span
+            className="inline-flex items-center rounded border border-dashed px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+            title="source_peer_id"
+          >
+            peer:{truncate(observation.source_peer_id, 20)}
+          </span>
+        ) : null}
       </div>
       {changedKeys.length > 0 ? (
         <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">

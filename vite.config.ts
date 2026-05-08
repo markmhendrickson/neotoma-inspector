@@ -59,6 +59,15 @@ export default defineConfig(() => {
     path.relative(__dirname, buildOutDir).includes("..");
   /** `vite build --watch` + emptyOutDir clears the whole tree each rebuild — races the API static mount. */
   const isBuildWatch = process.argv.includes("--watch");
+  /**
+   * When emitting into the repo `dist/inspector` (NEOTOMA_INSPECTOR_OUT_DIR=../dist/inspector), native
+   * FS watchers often miss edits under LaunchAgents / IDE saves. Use chokidar polling unless opted out.
+   * Set NEOTOMA_INSPECTOR_BUILD_WATCH_POLL=0 to force native watching only.
+   */
+  const pollInspectorBuildWatch =
+    isBuildWatch &&
+    outDirOutsideRoot &&
+    process.env.NEOTOMA_INSPECTOR_BUILD_WATCH_POLL !== "0";
 
   const devPortRaw =
     process.env.VITE_INSPECTOR_DEV_PORT?.trim() ||
@@ -80,6 +89,18 @@ export default defineConfig(() => {
     build: {
       outDir: buildOutDir,
       emptyOutDir: outDirOutsideRoot ? !isBuildWatch : undefined,
+      ...(pollInspectorBuildWatch
+        ? {
+            watch: {
+              chokidar: {
+                usePolling: true,
+                interval: Number(
+                  process.env.NEOTOMA_INSPECTOR_BUILD_WATCH_POLL_INTERVAL_MS ?? "1000",
+                ),
+              },
+            },
+          }
+        : {}),
     },
     server: {
       port: inspectorDevPort,

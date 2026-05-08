@@ -49,6 +49,11 @@ import {
   EntityOverviewStatsRow,
   MergedIntoPill,
 } from "@/components/shared/entity_overview_card";
+import {
+  PeerConfigNervousCard,
+  SubmissionConfigNervousCard,
+  SubscriptionNervousCard,
+} from "@/components/shared/nervous_system_entity_preview";
 import { SnapshotFieldList } from "@/components/shared/snapshot_field_list";
 import { ObservationTimeline } from "@/components/shared/observation_timeline";
 import { RelationshipPanel } from "@/components/shared/relationship_panel";
@@ -387,6 +392,9 @@ export default function EntityDetailPage() {
           </span>
         </div>
       ) : null}
+      {e.entity_type === "subscription" ? <SubscriptionNervousCard snapshot={snapshot} /> : null}
+      {e.entity_type === "peer_config" ? <PeerConfigNervousCard snapshot={snapshot} /> : null}
+      {e.entity_type === "submission_config" ? <SubmissionConfigNervousCard snapshot={snapshot} /> : null}
       <EntityOverviewCard
         entity={e}
         schema={schema}
