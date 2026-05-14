@@ -102,6 +102,18 @@ export function getIssueListNumberLabel(e: IssueListEntity): string {
   return "—";
 }
 
+/**
+ * Returns true when the issue is linked to a GitHub issue (public).
+ * An issue is GitHub-linked when any of the three number-resolution paths
+ * yields a positive integer: `github_number`, `github_url`, or `data_source`.
+ */
+export function isGithubLinkedIssue(e: IssueListEntity): boolean {
+  if (positiveGithubNumber(issueEntityField(e, "github_number")) !== undefined) return true;
+  if (parseGithubIssueNumberFromUrl(issueEntityField(e, "github_url")) !== undefined) return true;
+  if (parseGithubIssueNumberFromDataSource(issueEntityField(e, "data_source")) !== undefined) return true;
+  return false;
+}
+
 export function issueEntityMatchesSegment(e: IssueListEntity, segment: string | undefined): boolean {
   if (!segment) return false;
   if (entityIdOf(e) === segment) return true;

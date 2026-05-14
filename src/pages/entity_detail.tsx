@@ -65,7 +65,46 @@ import { QueryRefreshIndicator } from "@/components/shared/query_refresh_indicat
 import { toast } from "sonner";
 import { Trash2, RotateCcw, GitMerge, FileText } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Source } from "@/types/api";
+
+type MarkdownPreviewMode = "formatted" | "raw";
+
+function EntityMarkdownPreview({
+  content,
+  viewMode,
+}: {
+  content: string;
+  viewMode: MarkdownPreviewMode;
+}) {
+  if (viewMode === "raw") {
+    return (
+      <pre className="max-h-[480px] overflow-auto rounded bg-muted/50 p-3 font-mono text-xs whitespace-pre-wrap">
+        {content}
+      </pre>
+    );
+  }
+
+  return (
+    <div className="max-h-[480px] overflow-auto rounded bg-muted/30 p-4">
+      <div className="prose prose-sm dark:prose-invert max-w-none prose-pre:bg-muted/40 prose-pre:border prose-pre:border-border prose-a:text-primary prose-code:rounded prose-code:border prose-code:border-border prose-code:bg-muted/50 prose-code:px-1 prose-code:py-0.5 prose-code:text-[0.875em] prose-code:before:content-none prose-code:after:content-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ({ href, children, ...props }) => (
+              <a href={href ?? "#"} target="_blank" rel="noopener noreferrer" {...props}>
+                {children}
+              </a>
+            ),
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
+    </div>
+  );
+}
 
 export default function EntityDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -95,6 +134,8 @@ export default function EntityDetailPage() {
   const mergeMut = useMergeEntities();
 
   const [mergeTarget, setMergeTarget] = useState("");
+  const [markdownPreviewMode, setMarkdownPreviewMode] =
+    useState<MarkdownPreviewMode>("formatted");
 
   const entityIdForEdit = e?.entity_id ?? e?.id ?? id ?? "";
   const markdownQuery = useEntityMarkdown(entityIdForEdit);
@@ -497,11 +538,43 @@ export default function EntityDetailPage() {
           <div className="grid gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Markdown preview</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  What agents see via MCP <code>retrieve_entity_snapshot</code>
-                  and what lands in the filesystem mirror.
-                </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <CardTitle className="text-base">Markdown preview</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      What agents see via MCP <code>retrieve_entity_snapshot</code>
+                      and what lands in the filesystem mirror.
+                    </p>
+                  </div>
+                  <div
+                    className="inline-flex rounded-md border border-border bg-muted/30 p-0.5 text-xs"
+                    role="group"
+                    aria-label="Markdown preview display mode"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setMarkdownPreviewMode("formatted")}
+                      className={`rounded px-2 py-1 font-medium transition-colors ${
+                        markdownPreviewMode === "formatted"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Formatted
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMarkdownPreviewMode("raw")}
+                      className={`rounded px-2 py-1 font-medium transition-colors ${
+                        markdownPreviewMode === "raw"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Raw
+                    </button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {showInitialQuerySkeleton(markdownQuery) ? (
@@ -511,9 +584,10 @@ export default function EntityDetailPage() {
                     {markdownQuery.error.message}
                   </QueryErrorAlert>
                 ) : (
-                  <pre className="max-h-[480px] overflow-auto rounded bg-muted/50 p-3 font-mono text-xs whitespace-pre-wrap">
-                    {markdownQuery.data ?? ""}
-                  </pre>
+                  <EntityMarkdownPreview
+                    content={markdownQuery.data ?? ""}
+                    viewMode={markdownPreviewMode}
+                  />
                 )}
               </CardContent>
             </Card>

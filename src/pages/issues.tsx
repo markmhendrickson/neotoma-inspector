@@ -7,6 +7,7 @@ import { ListSkeleton, QueryErrorAlert } from "@/components/shared/query_status"
 import {
   getIssueListNumberLabel,
   getIssueRouteSegment,
+  isGithubLinkedIssue,
   issueEntityField,
 } from "@/utils/issue_navigation";
 import { bulkCloseIssues, bulkRemoveIssues } from "@/api/endpoints/issues";
@@ -42,6 +43,7 @@ function formatSubmitted(issue: EntitySnapshot): string | null {
 
 export default function IssuesPage() {
   const [filter, setFilter] = useState<"open" | "closed" | "all">("open");
+  const [visibility, setVisibility] = useState<"all" | "public" | "private">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<"close" | "remove" | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -58,8 +60,10 @@ export default function IssuesPage() {
 
   const issues = useMemo(() => {
     const filtered = (query.data?.entities ?? []).filter((issue) => {
-      if (filter === "all") return true;
-      return issueEntityField(issue, "status") === filter;
+      if (filter !== "all" && issueEntityField(issue, "status") !== filter) return false;
+      if (visibility === "public" && !isGithubLinkedIssue(issue)) return false;
+      if (visibility === "private" && isGithubLinkedIssue(issue)) return false;
+      return true;
     });
     return [...filtered].sort((a, b) => {
       const d = submittedAtMs(b) - submittedAtMs(a);
@@ -132,28 +136,50 @@ export default function IssuesPage() {
 
   return (
     <PageShell title="Issues" description="Issues and conversation threads stored in Neotoma">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div className="flex gap-2">
-          {(["open", "closed", "all"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => {
-                setFilter(f);
-                setSelected(new Set());
-              }}
-              className={`px-3 py-1 text-sm rounded-md border transition-colors ${
-                filter === f
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background border-border hover:bg-muted"
-              }`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2">
+              {(["open", "closed", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => {
+                    setFilter(f);
+                    setSelected(new Set());
+                  }}
+                  className={`px-3 py-1 text-sm rounded-md border transition-colors ${
+                    filter === f
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border hover:bg-muted"
+                  }`}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {(["all", "public", "private"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setVisibility(v);
+                    setSelected(new Set());
+                  }}
+                  className={`px-3 py-1 text-sm rounded-md border transition-colors ${
+                    visibility === v
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border hover:bg-muted"
+                  }`}
+                >
+                  {v === "all" ? "All sources" : v === "public" ? "GitHub" : "Private"}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        {issues.length > 0 && (
+          {issues.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
               <input
@@ -196,6 +222,7 @@ export default function IssuesPage() {
             </button>
           </div>
         )}
+        </div>
       </div>
 
       {lastError && (
